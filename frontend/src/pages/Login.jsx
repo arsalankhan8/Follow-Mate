@@ -48,6 +48,9 @@ export default function Login({ initialMode = "login" }) {
     localStorage.setItem("token", token);
     if (user) {
       localStorage.setItem("user", JSON.stringify(user));
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("user-updated"));
+      }
     }
   };
 
@@ -130,11 +133,17 @@ export default function Login({ initialMode = "login" }) {
       setSignupError("Password must be at least 8 characters long.");
       return;
     }
-  
     setSignupLoading(true);
   
     try {
-      const res = await API.post("/auth/signup", signupForm);
+      const formData = new FormData();
+      formData.append("name", signupForm.name);
+      formData.append("email", signupForm.email);
+      formData.append("password", signupForm.password);
+
+      const res = await API.post("/auth/signup", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
   
       navigate("/verify-email", {
         state: { userId: res.data.userId, email: signupForm.email },
@@ -390,7 +399,6 @@ export default function Login({ initialMode = "login" }) {
                       {showSignupPassword ? <HiOutlineEyeSlash /> : <HiOutlineEye />}
                     </button>
                   </div>
-
 
                   <p className="text-xs text-slate-500">
                     By creating an account, you agree to our{" "}

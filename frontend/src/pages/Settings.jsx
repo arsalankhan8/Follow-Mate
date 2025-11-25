@@ -1,16 +1,47 @@
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { HiOutlineCamera } from "react-icons/hi2";
 import DashboardSidebar from "../components/DashboardSidebar.jsx";
 import HeaderSection from "../components/HeaderSection.jsx";
+import API from "../lib/api";
+
+const getStoredUser = () => {
+  if (typeof window === "undefined") return null;
+  try {
+    return JSON.parse(localStorage.getItem("user") || "null");
+  } catch {
+    return null;
+  }
+};
 
 export default function Settings() {
   const navigate = useNavigate();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [user, setUser] = useState(getStoredUser);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [photoError, setPhotoError] = useState("");
+  const [photoSuccess, setPhotoSuccess] = useState("");
+  const fileInputRef = useRef(null);
 
-  const userProfile = {
-    name: "Arsalan Khan",
-    email: "theholyquran2004@gmail.com",
-  };
+  useEffect(() => {
+    const syncUser = () => setUser(getStoredUser());
+    window.addEventListener("user-updated", syncUser);
+    window.addEventListener("storage", syncUser);
+    return () => {
+      window.removeEventListener("user-updated", syncUser);
+      window.removeEventListener("storage", syncUser);
+    };
+  }, []);
+
+  const initials = useMemo(() => {
+    if (!user?.name) return "";
+    return user.name
+      .split(" ")
+      .filter(Boolean)
+      .map((part) => part[0]?.toUpperCase())
+      .slice(0, 2)
+      .join("");
+  }, [user]);
 
   const handleChangePassword = () => {
     console.log("Change password clicked");
@@ -20,11 +51,66 @@ export default function Settings() {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
     setShowLogoutConfirm(false);
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("user-updated"));
+    }
     navigate("/");
   };
 
   const handleLogoutClick = () => setShowLogoutConfirm(true);
   const handleCancelLogout = () => setShowLogoutConfirm(false);
+
+  const handlePhotoButtonClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handlePhotoSelect = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      setPhotoError("Please choose a valid image file.");
+      event.target.value = "";
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setPhotoError("Image must be smaller than 5MB.");
+      event.target.value = "";
+      return;
+    }
+
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setPhotoError("Session expired. Please log in again.");
+      event.target.value = "";
+      return;
+    }
+
+    setPhotoError("");
+    setPhotoSuccess("");
+    setUploadingPhoto(true);
+
+    try {
+      const formData = new FormData();
+      formData.append("profilePhoto", file);
+      const { data } = await API.put("/auth/profile/photo", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      setUser(data.user);
+      localStorage.setItem("user", JSON.stringify(data.user));
+      window.dispatchEvent(new Event("user-updated"));
+      setPhotoSuccess("Profile photo updated.");
+    } catch (error) {
+      setPhotoError(error.response?.data?.msg || "Failed to upload photo.");
+    } finally {
+      setUploadingPhoto(false);
+      event.target.value = "";
+    }
+  };
 
   return (
     <div className="flex min-h-screen bg-gray-50">
@@ -52,40 +138,89 @@ export default function Settings() {
                 for your security.
               </p>
 
-              <div className="mt-6 flex flex-col md:flex-row gap-4">
-                <div className="flex-1">
-                  <label
-                    htmlFor="fullName"
-                    className="text-sm font-medium text-gray-700"
-                  >
-                    Full Name
-                  </label>
-                  <input
-                    id="fullName"
-                    type="text"
-                    value={userProfile.name}
-                    disabled
-                    className="mt-2 w-full rounded-xl border border-gray-200 bg-gray-100 px-4 py-3 text-gray-700 shadow-sm focus:outline-none disabled:cursor-not-allowed"
-                  />
+              <div className="mt-6 flex flex-col gap-6">
+                <div className="flex flex-col gap-4 md:flex-row md:items-center">
+                  <div className="group relative h-24 w-24 overflow-hidden rounded-2xl bg-indigo-50 text-2xl font-bold text-indigo-700 flex items-center justify-center">
+                    {user?.profilePhoto ? (
+                      <img
+                        src={user.profilePhoto}
+                        alt={user?.name || "Profile avatar"}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : initials ? (
+                      initials
+                    ) : (
+                      <span>👤</span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={handlePhotoButtonClick}
+                      disabled={uploadingPhoto}
+                      className="absolute inset-0 flex items-center justify-center rounded-2xl bg-black/60 text-white opacity-0 transition group-hover:opacity-100 focus-visible:opacity-100 focus:outline-none disabled:opacity-60"
+                    >
+                      {uploadingPhoto ? (
+                        <span className="h-6 w-6 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                      ) : (
+                        <HiOutlineCamera className="text-2xl" />
+                      )}
+                      <span className="sr-only">Upload profile photo</span>
+                    </button>
+                  </div>
+
+                  <div>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handlePhotoSelect}
+                    />
+                    {photoError && (
+                      <p className="mt-2 text-sm text-red-500">{photoError}</p>
+                    )}
+                    {photoSuccess && (
+                      <p className="mt-2 text-sm text-emerald-600">
+                        {photoSuccess}
+                      </p>
+                    )}
+                  </div>
                 </div>
 
-                <div className="flex-1">
-                  <label
-                    htmlFor="email"
-                    className="text-sm font-medium text-gray-700"
-                  >
-                    Email
-                  </label>
-                  <input
-                    id="email"
-                    type="email"
-                    value={userProfile.email}
-                    disabled
-                    className="mt-2 w-full rounded-xl border border-gray-200 bg-gray-100 px-4 py-3 text-gray-700 shadow-sm focus:outline-none disabled:cursor-not-allowed"
-                  />
-                  <p className="mt-2 text-xs text-gray-500">
-                    Email updates require administrator assistance.
-                  </p>
+                <div className="flex flex-col gap-4 md:flex-row">
+                  <div className="flex-1">
+                    <label
+                      htmlFor="fullName"
+                      className="text-sm font-medium text-gray-700"
+                    >
+                      Full Name
+                    </label>
+                    <input
+                      id="fullName"
+                      type="text"
+                      value={user?.name || ""}
+                      disabled
+                      className="mt-2 w-full rounded-xl border border-gray-200 bg-gray-100 px-4 py-3 text-gray-700 shadow-sm focus:outline-none disabled:cursor-not-allowed"
+                    />
+                  </div>
+
+                  <div className="flex-1">
+                    <label
+                      htmlFor="email"
+                      className="text-sm font-medium text-gray-700"
+                    >
+                      Email
+                    </label>
+                    <input
+                      id="email"
+                      type="email"
+                      value={user?.email || ""}
+                      disabled
+                      className="mt-2 w-full rounded-xl border border-gray-200 bg-gray-100 px-4 py-3 text-gray-700 shadow-sm focus:outline-none disabled:cursor-not-allowed"
+                    />
+                    <p className="mt-2 text-xs text-gray-500">
+                      Email updates require administrator assistance.
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>

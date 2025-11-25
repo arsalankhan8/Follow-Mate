@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   HiOutlineSquares2X2,
   HiOutlineUsers,
@@ -8,15 +8,29 @@ import {
   HiOutlineUser,
 } from "react-icons/hi2";
 import { Link, useLocation } from "react-router-dom";
+const getStoredUser = () => {
+  if (typeof window === "undefined") return null;
+  try {
+    return JSON.parse(localStorage.getItem("user") || "null");
+  } catch {
+    return null;
+  }
+};
+
 function DashboardSidebar() {
   const location = useLocation(); // get current route
-  const user = useMemo(() => {
-    try {
-      return JSON.parse(localStorage.getItem("user") || "null");
-    } catch {
-      return null;
-    }
+  const [user, setUser] = useState(getStoredUser);
+
+  useEffect(() => {
+    const syncUser = () => setUser(getStoredUser());
+    window.addEventListener("user-updated", syncUser);
+    window.addEventListener("storage", syncUser);
+    return () => {
+      window.removeEventListener("user-updated", syncUser);
+      window.removeEventListener("storage", syncUser);
+    };
   }, []);
+
   const initials = useMemo(() => {
     if (!user?.name) return "";
     return user.name
@@ -25,6 +39,13 @@ function DashboardSidebar() {
       .map((part) => part[0]?.toUpperCase())
       .slice(0, 2)
       .join("");
+  }, [user]);
+
+  const displayEmail = useMemo(() => {
+    if (!user?.email) return "No email";
+    return user.email.length > 18
+      ? `${user.email.slice(0, 18)}...`
+      : user.email;
   }, [user]);
 
   return (
@@ -99,9 +120,7 @@ function DashboardSidebar() {
               <p className="font-semibold text-[14px]">
                 {user?.name || "Guest User"}
               </p>
-              <p className="text-[12px] text-gray-500">
-                {user?.email ? `${user.email}`.slice(0, 18) + (user.email.length > 18 ? "..." : "") : "No email"}
-              </p>
+              <p className="text-[12px] text-gray-500">{displayEmail}</p>
             </div>
           </div>
         </Link>

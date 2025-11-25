@@ -15,7 +15,27 @@ const CODE_EXPIRY_MINUTES = 15;
 const getExpiryDate = () =>
   new Date(Date.now() + CODE_EXPIRY_MINUTES * 60 * 1000);
 
+const authenticate = (req, res, next) => {
+  const authHeader = req.headers.authorization || "";
+  const token = authHeader.startsWith("Bearer ")
+    ? authHeader.split(" ")[1]
+    : null;
+
+  if (!token) {
+    return res.status(401).json({ msg: "Unauthorized" });
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.userId = decoded.id;
+    next();
+  } catch (error) {
+    return res.status(401).json({ msg: "Invalid token" });
+  }
+};
+
 // GENERATE TOKEN
+
 const generateToken = (user) => {
   return jwt.sign(
     { id: user._id, email: user.email },
@@ -72,7 +92,6 @@ router.post("/signup", upload.single("profilePhoto"), async (req, res) => {
 
   res.json({ msg: "Verification code sent", userId: user._id });
 });
-
 
 // ------------------ VERIFY EMAIL ------------------
 
@@ -277,5 +296,40 @@ router.post("/google", async (req, res) => {
     return res.status(400).json({ msg: "Google authentication failed" });
   }
 });
+
+// ------------------ UPDATE PROFILE PHOTO ------------------
+
+router.put(
+  "/profile/photo",
+  authenticate,
+  upload.single("profilePhoto"),
+  async (req, res) => {
+    if (!req.file) {
+      return res.status(400).json({ msg: "Please attach an image file" });
+    }
+
+    try {
+      const photoUrl = await uploadToCloudinary(req.file.buffer);
+      const user = await User.findByIdAndUpdate(
+        req.userId,
+        { profilePhoto: photoUrl },
+        { new: true }
+      ).select(
+        "-password -verificationCode -verificationCodeExpires -resetCode -resetCodeExpires"
+      );
+
+      if (!user) {
+        return res.status(404).json({ msg: "User not found" });
+      }
+
+      return res.json({ msg: "Profile photo updated", user });
+    } catch (error) {
+      console.error("Profile photo update failed:", error);
+      return res
+        .status(500)
+        .json({ msg: "Unable to update profile photo right now" });
+    }
+  }
+);
 
 export default router;
