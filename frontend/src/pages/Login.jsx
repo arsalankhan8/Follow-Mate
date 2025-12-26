@@ -128,13 +128,13 @@ export default function Login({ initialMode = "login" }) {
   const handleSignupSubmit = async (e) => {
     e.preventDefault();
     setSignupError("");
-  
+
     if (signupForm.password.length < 8) {
       setSignupError("Password must be at least 8 characters long.");
       return;
     }
     setSignupLoading(true);
-  
+
     try {
       const formData = new FormData();
       formData.append("name", signupForm.name);
@@ -144,7 +144,7 @@ export default function Login({ initialMode = "login" }) {
       const res = await API.post("/auth/signup", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
-  
+
       navigate("/verify-email", {
         state: { userId: res.data.userId, email: signupForm.email },
       });
@@ -154,8 +154,6 @@ export default function Login({ initialMode = "login" }) {
       setSignupLoading(false);
     }
   };
-  
-
 
   const sharedInput =
     "w-full bg-transparent text-sm text-slate-900 outline-none placeholder:text-slate-400";
@@ -214,6 +212,9 @@ export default function Login({ initialMode = "login" }) {
             className="relative mt-8 overflow-hidden pb-2 transition-[height] duration-500 ease-out"
             style={{ height: panelHeight ? `${panelHeight}px` : undefined }}
           >
+
+            {/* login  */}
+
             <div
               ref={loginPanelRef}
               className={`absolute inset-0 px-6 transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] ${mode === "login"
@@ -311,6 +312,9 @@ export default function Login({ initialMode = "login" }) {
                 </p>
               </div>
             </div>
+
+            {/* signup  */}
+
             <div
               ref={signupPanelRef}
               className={`absolute inset-0 px-6 transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] ${mode === "signup"
@@ -407,17 +411,17 @@ export default function Login({ initialMode = "login" }) {
                   </p>
 
                   <button
-  type="submit"
-  disabled={signupLoading}
-  className="w-full rounded-[10px] bg-indigo-600 py-3 text-base font-semibold text-white shadow-lg shadow-indigo-500/30
+                    type="submit"
+                    disabled={signupLoading}
+                    className="w-full rounded-[10px] bg-indigo-600 py-3 text-base font-semibold text-white shadow-lg shadow-indigo-500/30
              hover:bg-indigo-500 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
->
-  {signupLoading && (
-    <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-  )}
+                  >
+                    {signupLoading && (
+                      <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    )}
 
-  {signupLoading ? "Sending Verification Email..." : "Create Account"}
-</button>
+                    {signupLoading ? "Sending Verification Email..." : "Create Account"}
+                  </button>
 
 
                 </form>
@@ -434,7 +438,9 @@ export default function Login({ initialMode = "login" }) {
                 </p>
               </div>
             </div>
+            
           </div>
+
         </div>
       </div>
     </div>

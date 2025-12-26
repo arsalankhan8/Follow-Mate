@@ -7,13 +7,15 @@ import VerifyEmail from './pages/VerifyEmail.jsx';
 import ForgotPassword from './pages/ForgotPassword.jsx';
 import ResetPassword from './pages/ResetPassword.jsx';
 import SetPassword from './pages/SetPassword.jsx';
+import ChangePasswordCode from './pages/ChangePasswordCode.jsx';
+import ChangePassword from './pages/ChangePassword.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import Contacts from './pages/Contacts.jsx';
 import Campaigns from './pages/Campaigns.jsx';
 import Engagements from "./pages/Engagements.jsx";
 import Analytics from "./pages/Analytics.jsx";
 import Settings from "./pages/Settings.jsx";
-
+import { ModalProvider } from "./components/context/ModalContext.jsx";
 function ProtectedRoute({ children }) {
   const token = localStorage.getItem("token");
   if (!token) {
@@ -26,6 +28,7 @@ export default function App() {
 
   return (
     <>
+    <ModalProvider>
       {/* Render Navbar only on the landing page */}
       {location.pathname === "/" && <Navbar />}
 
@@ -37,6 +40,22 @@ export default function App() {
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/set-password" element={<SetPassword />} />
+        <Route
+          path="/change-password-code"
+          element={
+            <ProtectedRoute>
+              <ChangePasswordCode />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/change-password"
+          element={
+            <ProtectedRoute>
+              <ChangePassword />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/dashboard"
           element={
@@ -86,6 +105,7 @@ export default function App() {
           }
         />
       </Routes>
+      </ModalProvider>
     </>
   );
 }

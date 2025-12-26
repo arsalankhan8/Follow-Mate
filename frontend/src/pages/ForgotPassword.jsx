@@ -74,6 +74,7 @@ export default function ForgotPassword() {
             )}
             {loading ? "Sending Reset Code..." : "Send Reset Code"}
           </button>
+          
         </form>
 
         <p className="mt-6 text-center text-sm text-slate-500">
@@ -91,4 +92,5 @@ export default function ForgotPassword() {
       </div>
     </div>
   );
-}
+  
+};

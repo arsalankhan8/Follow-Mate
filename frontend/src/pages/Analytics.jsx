@@ -7,7 +7,7 @@ export default function Analytics() {
             <DashboardSidebar />
             <main className="ml-56 flex-1 max-sm:ml-20">
                 <HeaderSection />
-                <section className="p-6">
+                <section className="px-16 py-8">
                     <h2 className="text-xl font-semibold text-gray-900">Analytics</h2>
                     <p className="mt-2 text-sm text-gray-600">
                     Analytics list UI goes here.

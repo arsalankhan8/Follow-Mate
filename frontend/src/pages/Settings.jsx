@@ -22,6 +22,7 @@ export default function Settings() {
   const [photoError, setPhotoError] = useState("");
   const [photoSuccess, setPhotoSuccess] = useState("");
   const fileInputRef = useRef(null);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const syncUser = () => setUser(getStoredUser());
@@ -43,8 +44,33 @@ export default function Settings() {
       .join("");
   }, [user]);
 
-  const handleChangePassword = () => {
-    console.log("Change password clicked");
+  const handleChangePassword = async () => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      navigate("/login");
+      return;
+    }
+    setLoading(true);
+    try {
+      await API.post(
+        "/auth/change-password/request",
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      navigate("/change-password-code");
+    } catch (error) {
+      console.error("Failed to request change password code:", error);
+      alert(
+        error.response?.data?.msg ||
+          "Failed to send verification code. Please try again."
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleLogout = () => {
@@ -134,8 +160,8 @@ export default function Settings() {
                 Profile Information
               </h2>
               <p className="mt-1 text-sm text-gray-500">
-                Your personal information is shown below. These fields are locked
-                for your security.
+                Your personal information is shown below. These fields are
+                locked for your security.
               </p>
 
               <div className="mt-6 flex flex-col gap-6">
@@ -238,9 +264,13 @@ export default function Settings() {
                 <button
                   type="button"
                   onClick={handleChangePassword}
+                  disabled={loading}
                   className="flex-1 rounded-xl border border-indigo-200 px-6 py-3 text-lg text-indigo-600 transition hover:border-indigo-400 hover:bg-indigo-50"
                 >
-                  Change Password
+                  {loading && (
+                    <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  )}
+                  {loading ? "Sending Verification Code..." : "Change Password"}
                 </button>
 
                 <button
@@ -287,4 +317,5 @@ export default function Settings() {
       </main>
     </div>
   );
+  
 }

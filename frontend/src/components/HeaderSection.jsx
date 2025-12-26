@@ -1,4 +1,8 @@
+// frontend > src > components > HeaderSection.jsx 
+
+import { Component } from "react";
 import { useLocation } from "react-router-dom";
+import { useModal } from "../components/context/ModalContext.jsx";
 
 const headerConfig = {
   "/dashboard": {
@@ -42,15 +46,19 @@ const HeaderSection = () => {
   const { pathname } = useLocation();
   const { heading, subheading, buttonText, showButton } =
     headerConfig[pathname] || defaultHeader;
-
+  const { openModal } = useModal();
   if (!heading && !subheading) {
     return null;
   }
+  const handleClick = () => {
+    const event = new CustomEvent("open-create-modal");
+    window.dispatchEvent(event);
+  };
 
   return (
-    
+
     <header className="sticky top-0 z-10 ">
-      <div className="flex flex-wrap items-center justify-between gap-4 px-6 py-5">
+      <div className="flex flex-wrap items-center justify-between gap-4 px-16 py-5">
         <div>
           {heading && (
             <h1 className="text-3xl font-semibold text-slate-900">{heading}</h1>
@@ -61,7 +69,7 @@ const HeaderSection = () => {
         </div>
 
         {showButton && buttonText && (
-          <button className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700">
+          <button onClick={handleClick} className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700">
             <span className="text-lg leading-none">+</span>
             {buttonText}
           </button>

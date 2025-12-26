@@ -81,3 +81,16 @@ export const resetPasswordEmail = ({ name, code }) =>
     `
   );
 
+export const changePasswordEmail = ({ name, code }) =>
+  wrapEmail(
+    "Change Password",
+    `
+      <div style="${badgeStyles}">🔒</div>
+      <h1 style="font-size:24px;margin:0 0 8px 0;">Change your password</h1>
+      <p style="margin:0 0 8px 0;">Hi ${name || "there"},</p>
+      <p style="margin:0 0 12px 0;">We received a request to change your password. Enter the code below in the app to continue:</p>
+      <div style="${codeStyles}">${code}</div>
+      <p style="margin:0;">If you didn't request this, please secure your account immediately.</p>
+    `
+  );
+
