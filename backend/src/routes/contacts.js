@@ -9,6 +9,7 @@ const router = express.Router();
  * @route   POST /api/contacts
  * @desc    Create new contact
  */
+
 router.post("/", authenticate, async (req, res) => {
   let contactData = {};
   try {
