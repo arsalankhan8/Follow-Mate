@@ -8,6 +8,7 @@ import {
   HiOutlineUser,
 } from "react-icons/hi2";
 import { Link, useLocation } from "react-router-dom";
+
 const getStoredUser = () => {
   if (typeof window === "undefined") return null;
   try {
@@ -18,7 +19,7 @@ const getStoredUser = () => {
 };
 
 function DashboardSidebar() {
-  const location = useLocation(); // get current route
+  const location = useLocation();
   const [user, setUser] = useState(getStoredUser);
 
   useEffect(() => {
@@ -36,7 +37,7 @@ function DashboardSidebar() {
     return user.name
       .split(" ")
       .filter(Boolean)
-      .map((part) => part[0]?.toUpperCase())
+      .map((p) => p[0]?.toUpperCase())
       .slice(0, 2)
       .join("");
   }, [user]);
@@ -49,19 +50,31 @@ function DashboardSidebar() {
   }, [user]);
 
   return (
-    <aside className="fixed top-0 left-0 h-screen  bg-white shadow-lg shadow-gray-400/50 flex flex-col justify-between p-4 max-sm:w-20 max-sm:p-3">
-      {/* Logo */}
+    <aside
+      className="
+        fixed top-0 left-0 h-screen
+        bg-white shadow-lg
+        w-20 lg:w-64
+        p-3 lg:p-4
+        flex flex-col justify-between
+      "
+    >
+      {/* Top */}
       <div>
-
-        <div className="flex items-center gap-2  max-sm:justify-center">
+        {/* Logo */}
+        <div className="flex items-center justify-center lg:justify-start gap-2">
           <div className="h-10 w-10 bg-purple-600 rounded-xl text-white flex items-center justify-center text-xl font-bold">
             i
           </div>
-          <span className="font-semibold text-lg max-sm:hidden">LinkedIn Hub</span>
+          <span className="hidden lg:block font-semibold text-lg">
+            LinkedIn Hub
+          </span>
         </div>
-        <hr className="border-gray-300 w-[124%] ml-[-15%] my-6" />
+
+        <hr className="my-6 border-gray-300" />
+
         {/* Navigation */}
-        <nav className="flex flex-col gap-2 text-gray-700 font-medium">
+        <nav className="flex flex-col gap-2">
           <SidebarItem
             label="Dashboard"
             icon={<HiOutlineSquares2X2 />}
@@ -93,21 +106,27 @@ function DashboardSidebar() {
             active={location.pathname === "/analytics"}
           />
         </nav>
-
       </div>
 
       {/* User Box */}
-
       <div>
-        <hr className="border-gray-300 w-[125%] ml-[-16%] my-6" />
+        <hr className="my-6 border-gray-300" />
 
         <Link to="/settings">
-          <div className="flex items-center gap-3 p-3 rounded-xl bg-[#F8FAFC] cursor-pointer hover:bg-gray-100 transition max-sm:justify-center max-sm:p-2">
-            <div className="h-10 w-10 flex items-center justify-center overflow-hidden rounded-full bg-purple-600 text-white text-sm font-semibold">
+          <div
+            className="
+              flex items-center gap-3
+              justify-center lg:justify-start
+              p-2 lg:p-3
+              rounded-xl bg-[#F8FAFC]
+              hover:bg-gray-100 transition
+            "
+          >
+            <div className="h-10 w-10 rounded-full bg-purple-600 text-white flex items-center justify-center text-sm font-semibold overflow-hidden">
               {user?.profilePhoto ? (
                 <img
                   src={user.profilePhoto}
-                  alt={user?.name || "User avatar"}
+                  alt={user?.name || "User"}
                   className="h-full w-full object-cover"
                 />
               ) : initials ? (
@@ -116,17 +135,16 @@ function DashboardSidebar() {
                 <HiOutlineUser className="text-xl" />
               )}
             </div>
-            <div className="max-sm:hidden">
-              <p className="font-semibold text-[14px]">
+
+            <div className="hidden lg:block">
+              <p className="text-sm font-semibold">
                 {user?.name || "Guest User"}
               </p>
-              <p className="text-[12px] text-gray-500">{displayEmail}</p>
+              <p className="text-xs text-gray-500">{displayEmail}</p>
             </div>
           </div>
         </Link>
-
       </div>
-
     </aside>
   );
 }
@@ -136,14 +154,20 @@ function SidebarItem({ icon, label, to, active }) {
     <Link
       to={to}
       className={`
-        flex items-center gap-3 p-3 rounded-lg transition
-        max-sm:justify-center max-sm:gap-0
-        ${active ? "bg-[#EEF2FF] text-[#4f46e5]" : "text-[#475569] hover:bg-gray-100"}
+        flex items-center gap-3
+        justify-center lg:justify-start
+        p-3 rounded-lg transition
+        ${
+          active
+            ? "bg-[#EEF2FF] text-[#4f46e5]"
+            : "text-[#475569] hover:bg-gray-100"
+        }
       `}
     >
       <span className="text-[25px]">{icon}</span>
-      <span className="max-sm:hidden text-[18px] font-normal">{label}</span>
-
+      <span className="hidden lg:block text-base font-normal">
+        {label}
+      </span>
     </Link>
   );
 }

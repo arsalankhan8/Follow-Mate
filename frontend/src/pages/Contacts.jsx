@@ -5,9 +5,10 @@ import DashboardSidebar from "../components/DashboardSidebar.jsx";
 import HeaderSection from "../components/HeaderSection.jsx";
 import AppModal from "../components/modals/AppModal.jsx";
 import API from "../lib/api";
-
+import ContactDetails from "../components/modals/ContactDetails.jsx";
 // Icons
 import {
+  HiOutlineArrowTopRightOnSquare,
   HiOutlineUser,
   HiOutlineChatBubbleLeftRight,
   HiOutlineExclamationTriangle,
@@ -89,6 +90,7 @@ export default function Contacts() {
   const [contacts, setContacts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [viewContact, setViewContact] = useState(null);
 
   // Filters
   const [searchQuery, setSearchQuery] = useState("");
@@ -167,60 +169,63 @@ export default function Contacts() {
     <div className="flex min-h-screen bg-gray-50">
       <DashboardSidebar />
 
-      <main className="ml-56 flex-1 p-4">
+      <main className="ml-[85px] lg:ml-56 flex-1 p-4">
         <HeaderSection />
         <AppModal />
 
         {/* Filters */}
-        <div className="flex flex-wrap gap-4 mb-6  items-center justify-between px-16 py-5">
-          <input
-            type="text"
-            placeholder="Search contacts..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="px-3 py-2 border rounded-md flex-1 min-w-[200px]"
-          />
 
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-3 py-2 border rounded-md"
-          >
-            <option value="all">All Status</option>
-            <option value="prospect">Prospect</option>
-            <option value="contacted">Contacted</option>
-            <option value="following">Following</option>
-            <option value="connected">Connected</option>
-            <option value="lead">Lead</option>
-            <option value="client">Client</option>
-            <option value="inactive">Inactive</option>
-          </select>
+        <div className="py-6 lg:px-16">
+          <div className="bg-white rounded-lg shadow-md border border-gray-100 flex flex-wrap items-center justify-between w-full gap-4 p-4">
+            <input
+              type="text"
+              placeholder="Search contacts..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="px-3 py-2 border rounded-md flex-1 min-w-[200px]"
+            />
 
-          <select
-            value={priorityFilter}
-            onChange={(e) => setPriorityFilter(e.target.value)}
-            className="px-3 py-2 border rounded-md"
-          >
-            <option value="all">All Priority</option>
-            <option value="low">Low</option>
-            <option value="medium">Medium</option>
-            <option value="high">High</option>
-            <option value="urgent">Urgent</option>
-          </select>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="px-3 py-2 border rounded-md"
+            >
+              <option value="all">All Status</option>
+              <option value="prospect">Prospect</option>
+              <option value="contacted">Contacted</option>
+              <option value="following">Following</option>
+              <option value="connected">Connected</option>
+              <option value="lead">Lead</option>
+              <option value="client">Client</option>
+              <option value="inactive">Inactive</option>
+            </select>
 
-          <select
-            value={followUpFilter}
-            onChange={(e) => setFollowUpFilter(e.target.value)}
-            className="px-3 py-2 border rounded-md"
-          >
-            <option value="all">All Follow-ups</option>
-            <option value="overdue">Overdue</option>
-            <option value="today">Due Today</option>
-            <option value="upcoming">Upcoming</option>
-          </select>
+            <select
+              value={priorityFilter}
+              onChange={(e) => setPriorityFilter(e.target.value)}
+              className="px-3 py-2 border rounded-md"
+            >
+              <option value="all">All Priority</option>
+              <option value="low">Low</option>
+              <option value="medium">Medium</option>
+              <option value="high">High</option>
+              <option value="urgent">Urgent</option>
+            </select>
+
+            <select
+              value={followUpFilter}
+              onChange={(e) => setFollowUpFilter(e.target.value)}
+              className="px-3 py-2 border rounded-md"
+            >
+              <option value="all">All Follow-ups</option>
+              <option value="overdue">Overdue</option>
+              <option value="today">Due Today</option>
+              <option value="upcoming">Upcoming</option>
+            </select>
+          </div>
         </div>
 
-        {loading && <p className="px-16 py-4">Loading contacts...</p>}
+        {loading && <p className="lg:px-16 py-4">Loading contacts...</p>}
         {error && <p className="text-red-500">{error}</p>}
 
         {!loading && !error && filteredContacts.length === 0 && (
@@ -244,7 +249,7 @@ export default function Contacts() {
         )}
 
         {!loading && !error && filteredContacts.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4  items-center justify-between px-16 py-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4  items-center justify-between lg:px-16 py-5">
             {filteredContacts.map((contact) => {
               const followUpKey = getFollowUpStatus(contact.nextFollowUpDate);
               const followUpCfg =
@@ -282,9 +287,7 @@ export default function Contacts() {
                         <div className="absolute right-0 mt-2 w-40 bg-white border border-gray-200 rounded-md shadow-lg z-50">
                           <button
                             onClick={() => {
-                              openModal(
-                                <ContactForm viewOnly contact={contact} />
-                              );
+                              setViewContact(contact);
                               setOpenMenuId(null);
                             }}
                             className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50"
@@ -359,14 +362,15 @@ export default function Contacts() {
                         href={contact.profileUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center gap-1 px-3 py-1.5 text-sm border rounded-md hover:bg-gray-50"
+                        title="Open external profile"
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-sm border rounded-md hover:bg-gray-50"
                       >
-                        <HiOutlineUser className="w-4 h-4" />
+                        <HiOutlineArrowTopRightOnSquare className="w-4 h-4" />
                         Profile
                       </a>
                     )}
 
-                    <button className="flex items-center gap-1 px-3 py-1.5 text-sm border border-indigo-600 text-indigo-600 rounded-md hover:bg-indigo-50">
+                    <button className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-indigo-600 text-indigo-600 rounded-md hover:bg-indigo-50">
                       <HiOutlineChatBubbleLeftRight className="w-4 h-4" />
                       Engage
                     </button>
@@ -416,6 +420,15 @@ export default function Contacts() {
                       </div>
                     </div>
                   )}
+
+                  {/* view details of contact modal  */}
+
+                  {viewContact && (
+                    <ContactDetails
+                      contact={viewContact}
+                      onClose={() => setViewContact(null)}
+                    />
+                  )}
                 </div>
               );
             })}
@@ -424,5 +437,4 @@ export default function Contacts() {
       </main>
     </div>
   );
-
-};
+}
