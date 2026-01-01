@@ -1,7 +1,7 @@
 import express from "express";
 import mongoose from "mongoose";
 import Contact from "../models/Contact.js";
-import Campaign from "../models/Campaign.js"; // Import to register the model
+import Campaign from "../models/Campaign.js"; 
 import { authenticate } from "./auth.js";
 const router = express.Router();
 
@@ -211,6 +211,7 @@ router.get("/", authenticate, async (req, res) => {
  * @route   GET /api/contacts/:id
  * @desc    Get single contact
  */
+
 router.get("/:id", authenticate, async (req, res) => {
   try {
     // Validate ObjectId format
@@ -240,6 +241,7 @@ router.get("/:id", authenticate, async (req, res) => {
  * @route   PUT /api/contacts/:id
  * @desc    Update contact
  */
+
 router.put("/:id", authenticate, async (req, res) => {
   try {
     // Validate ObjectId format
@@ -293,6 +295,7 @@ router.put("/:id", authenticate, async (req, res) => {
  * @route   DELETE /api/contacts/:id
  * @desc    Delete contact
  */
+
 router.delete("/:id", authenticate, async (req, res) => {
   try {
     // Validate ObjectId format

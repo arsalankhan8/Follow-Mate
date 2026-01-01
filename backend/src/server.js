@@ -7,7 +7,7 @@ import cookieParser from "cookie-parser";
 import connectDB from "./config/db.js";
 import authRoutes from "./routes/auth.js";
 import contactRoutes from "./routes/contacts.js";
-
+import campaignRoutes from "./routes/campaigns.js";
 dotenv.config();
 connectDB();
 
@@ -23,6 +23,7 @@ app.use(
 
 app.use("/api/auth", authRoutes);
 app.use("/api/contacts", contactRoutes);
+app.use("/api/campaigns", campaignRoutes);
 
 app.listen(process.env.PORT, () =>
   console.log("Server running on port", process.env.PORT)

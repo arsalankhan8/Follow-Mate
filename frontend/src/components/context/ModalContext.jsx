@@ -1,4 +1,6 @@
-import { createContext, useContext, useState } from "react";
+// src  > components > context > ModalContext.jsx
+
+import { Component, createContext, useContext, useState } from "react";
 
 const ModalContext = createContext();
 

@@ -1,4 +1,6 @@
-import { useEffect, useState } from "react";
+// src > pages > Contacts.jsx
+
+import { useEffect, useState, useRef } from "react";
 import { useModal } from "../components/context/ModalContext.jsx";
 import ContactForm from "../components/forms/ContactForm";
 import DashboardSidebar from "../components/DashboardSidebar.jsx";
@@ -6,6 +8,7 @@ import HeaderSection from "../components/HeaderSection.jsx";
 import AppModal from "../components/modals/AppModal.jsx";
 import API from "../lib/api";
 import ContactDetails from "../components/modals/ContactDetails.jsx";
+
 // Icons
 import {
   HiOutlineArrowTopRightOnSquare,
@@ -101,6 +104,8 @@ export default function Contacts() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [contactToDelete, setContactToDelete] = useState(null);
 
+  const menuRefs = useRef({});
+
   const deleteContact = async (id) => {
     try {
       await API.delete(`/contacts/${id}`);
@@ -109,6 +114,22 @@ export default function Contacts() {
       alert(err.response?.data?.message || "Failed to delete contact");
     }
   };
+
+  // close on click : outside
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (!openMenuId) return;
+
+      const menuNode = menuRefs.current[openMenuId];
+      if (menuNode && !menuNode.contains(e.target)) {
+        setOpenMenuId(null);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [openMenuId]);
 
   // Open modal listener
 
@@ -271,7 +292,13 @@ export default function Contacts() {
                         {contact.company && ` · ${contact.company}`}
                       </p>
                     </div>
-                    <div className="relative">
+
+                    <div
+                      className="relative"
+                      ref={(node) => {
+                        if (node) menuRefs.current[contact._id] = node;
+                      }}
+                    >
                       <button
                         onClick={() =>
                           setOpenMenuId(
@@ -434,6 +461,7 @@ export default function Contacts() {
             })}
           </div>
         )}
+
       </main>
     </div>
   );

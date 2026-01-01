@@ -1,17 +1,18 @@
 // frontend > src > components > forms > ContactForm.jsx
-
-import { useForm } from "react-hook-form";
+import { useForm, useFieldArray } from "react-hook-form";
+import { useEffect, useState } from "react";
 import API from "../../lib/api";
 import { useModal } from "../context/ModalContext.jsx";
-import { useEffect } from "react";
 
 export default function ContactForm({ contact }) {
   const { closeModal } = useModal();
+
   const {
     register,
+    control,
     handleSubmit,
     reset,
-      watch, 
+    watch,
     formState: { errors, isSubmitting },
   } = useForm({
     defaultValues: contact
@@ -25,13 +26,61 @@ export default function ContactForm({ contact }) {
           leadScore: contact.leadScore,
           email: contact.email,
           phone: contact.phone,
-          tags: contact.tags?.join(", "),
+
+          // ✅ tags as array of objects for useFieldArray
+          tags: (contact.tags || []).map((t) => ({ value: t })),
+
           notes: contact.notes,
           lastContactDate: contact.lastContactDate?.slice(0, 10),
           nextFollowUpDate: contact.nextFollowUpDate?.slice(0, 10),
         }
-      : {},
+      : {
+          tags: [],
+        },
   });
+
+  const [tagInput, setTagInput] = useState("");
+
+  const {
+    fields: tagFields,
+    append,
+    remove,
+  } = useFieldArray({
+    control,
+    name: "tags",
+  });
+
+  const addTag = () => {
+    const value = tagInput.trim();
+    if (!value) return;
+
+    const current = watch("tags") || [];
+
+    // ✅ limit: max 3 tags
+    if (current.length >= 3) {
+      setTagInput("");
+      return;
+    }
+
+    const exists = current.some(
+      (t) => (t?.value || "").toLowerCase() === value.toLowerCase()
+    );
+
+    if (exists) {
+      setTagInput("");
+      return;
+    }
+
+    append({ value });
+    setTagInput("");
+  };
+
+  const onTagKeyDown = (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      addTag();
+    }
+  };
 
   useEffect(() => {
     if (contact) {
@@ -45,7 +94,10 @@ export default function ContactForm({ contact }) {
         leadScore: contact.leadScore,
         email: contact.email,
         phone: contact.phone,
-        tags: contact.tags?.join(", "),
+
+        // ✅ reset tags correctly
+        tags: (contact.tags || []).map((t) => ({ value: t })),
+
         notes: contact.notes,
         lastContactDate: contact.lastContactDate?.slice(0, 10),
         nextFollowUpDate: contact.nextFollowUpDate?.slice(0, 10),
@@ -55,24 +107,28 @@ export default function ContactForm({ contact }) {
 
   const onSubmit = async (data) => {
     try {
-      console.log("Submitting contact data:", data);
-      let response;
+      // ✅ Convert tags [{value:"x"}] -> ["x"]
+      const payload = {
+        ...data,
+        tags: (data.tags || []).map((t) => t?.value?.trim()).filter(Boolean),
+      };
 
+      console.log("Submitting contact data:", payload);
+
+      let response;
       if (contact?._id) {
-        response = await API.put(`/contacts/${contact._id}`, data);
+        response = await API.put(`/contacts/${contact._id}`, payload);
       } else {
-        response = await API.post("/contacts", data);
+        response = await API.post("/contacts", payload);
       }
 
       console.log("Contact created successfully:", response.data);
       closeModal();
-      // Trigger a refresh of the contacts list
       window.dispatchEvent(new Event("contacts-updated"));
     } catch (err) {
       console.error("Failed to create contact:", err);
       console.error("Error response:", err.response?.data);
 
-      // Show detailed error message
       const errorMessage =
         err.response?.data?.error ||
         err.response?.data?.message ||
@@ -83,9 +139,13 @@ export default function ContactForm({ contact }) {
     }
   };
 
+  const tagsLimitReached = tagFields.length >= 3;
+
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-      <h2>{contact ? "Edit Contact" : "Add Contact"}</h2>
+      <h2 className="text-lg font-semibold text-gray-900">
+        {contact ? "Edit Contact" : "Add Contact"}
+      </h2>
 
       {/* GRID */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
@@ -227,16 +287,53 @@ export default function ContactForm({ contact }) {
         {/* Tags */}
         <div className="md:col-span-2">
           <label className="block text-sm mb-1">Tags</label>
+
           <div className="flex gap-2">
             <input
-              {...register("tags")}
+              value={tagInput}
+              onChange={(e) => setTagInput(e.target.value)}
+              onKeyDown={onTagKeyDown}
               placeholder="Add a tag..."
-              className="input flex-1"
+              disabled={tagsLimitReached}
+              className="input flex-1 disabled:bg-gray-100 disabled:cursor-not-allowed"
             />
-            <button type="button" className="rounded-md border px-4 text-sm">
+            <button
+              type="button"
+              onClick={addTag}
+              disabled={tagsLimitReached}
+              className="rounded-md border px-4 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            >
               Add
             </button>
           </div>
+
+          {/* Pills */}
+          {tagFields.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {tagFields.map((tag, index) => (
+                <span
+                  key={tag.id}
+                  className="inline-flex items-center gap-2 rounded-full bg-indigo-50 px-3 py-1 text-sm text-indigo-700 border border-indigo-100"
+                >
+                  {tag.value}
+                  <button
+                    type="button"
+                    onClick={() => remove(index)}
+                    className="text-indigo-500 hover:text-indigo-800"
+                    aria-label={`Remove tag ${tag.value}`}
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+
+          {tagsLimitReached && (
+            <p className="mt-2 text-xs text-gray-500">
+              You can add up to 3 tags only.
+            </p>
+          )}
         </div>
 
         {/* Notes */}

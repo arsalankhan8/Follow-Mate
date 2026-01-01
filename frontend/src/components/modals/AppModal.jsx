@@ -1,3 +1,5 @@
+// sec  > components > modals > AppModal.jsx
+
 import { useEffect } from "react";
 import { useModal } from "../context/ModalContext.jsx";
 
