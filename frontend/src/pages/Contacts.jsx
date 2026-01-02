@@ -305,7 +305,7 @@ export default function Contacts() {
                             openMenuId === contact._id ? null : contact._id
                           )
                         }
-                        className="text-gray-400 hover:text-gray-600 text-xl leading-none"
+                        className="text-gray-400 hover:text-gray-600  hover:bg-gray-100 rounded-lg p-2 text-xl leading-none"
                       >
                         ⋮
                       </button>
@@ -461,8 +461,8 @@ export default function Contacts() {
             })}
           </div>
         )}
-
       </main>
     </div>
   );
-}
+
+};

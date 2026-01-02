@@ -1,8 +1,8 @@
-// src > routes > campaigns.js 
+// src > routes > campaigns.js
 
 import express from "express";
 import Campaign from "../models/Campaign.js";
-import { authenticate } from "./auth.js"; 
+import { authenticate } from "./auth.js";
 
 const router = express.Router();
 
@@ -39,16 +39,15 @@ router.post("/", authenticate, async (req, res) => {
   }
 });
 
-
 /* =========================
    GET ALL CAMPAIGNS
 ========================= */
+
 router.get("/", authenticate, async (req, res) => {
   try {
     const campaigns = await Campaign.find({ user: req.userId })
       .sort({ createdAt: -1 })
       .populate("targetContacts", "fullName email company role");
-
     res.json(campaigns);
   } catch (err) {
     console.error("Get Campaigns Error:", err);
@@ -79,6 +78,7 @@ router.get("/:id", authenticate, async (req, res) => {
 /* =========================
    UPDATE CAMPAIGN
 ========================= */
+
 router.put("/:id", authenticate, async (req, res) => {
   try {
     const updates = { ...req.body };
@@ -89,7 +89,7 @@ router.put("/:id", authenticate, async (req, res) => {
     if (updates.targetContacts && !Array.isArray(updates.targetContacts)) {
       updates.targetContacts = [];
     }
-
+    
     const campaign = await Campaign.findOneAndUpdate(
       { _id: req.params.id, user: req.userId },
       updates,
@@ -106,10 +106,10 @@ router.put("/:id", authenticate, async (req, res) => {
   }
 });
 
-
 /* =========================
    DELETE CAMPAIGN
 ========================= */
+
 router.delete("/:id", authenticate, async (req, res) => {
   try {
     const campaign = await Campaign.findOneAndDelete({

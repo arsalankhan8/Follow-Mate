@@ -38,6 +38,7 @@ export default function CampaignForm() {
   const onSubmit = async (data) => {
     try {
       await API.post("/campaigns", data);
+      window.dispatchEvent(new Event("campaign-created"));
       closeModal();
     } catch (err) {
       console.error("Failed to create campaign", err);
