@@ -464,5 +464,4 @@ export default function Contacts() {
       </main>
     </div>
   );
-
-};
+}

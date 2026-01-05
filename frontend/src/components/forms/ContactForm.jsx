@@ -168,7 +168,15 @@ export default function ContactForm({ contact }) {
                 Full Name cannot exceed 50 characters.
               </p>
             )}
-            <p className="text-gray-400">{watch("fullName")?.length || 0}/50</p>
+            <p
+              className={`${
+                (watch("fullName")?.length || 0) >= 50
+                  ? "text-red-500"
+                  : "text-gray-400"
+              }`}
+            >
+              {watch("fullName")?.length || 0}/50
+            </p>
           </div>
         </div>
 
@@ -353,7 +361,15 @@ export default function ContactForm({ contact }) {
                 Notes cannot exceed 500 characters.
               </p>
             )}
-            <p className="text-gray-400">{watch("notes")?.length || 0}/500</p>
+            <p
+              className={`${
+                (watch("notes")?.length || 0) >= 500
+                  ? "text-red-500"
+                  : "text-gray-400"
+              }`}
+            >
+              {watch("notes")?.length || 0}/500
+            </p>
           </div>
         </div>
       </div>

@@ -1,6 +1,7 @@
 // src/pages/Campaigns.jsx
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
+
 import DashboardSidebar from "../components/DashboardSidebar.jsx";
 import HeaderSection from "../components/HeaderSection.jsx";
 import AppModal from "../components/modals/AppModal.jsx";
@@ -45,14 +46,19 @@ const formatDateRange = (start, end) => {
 
 export default function Campaigns() {
   const { openModal } = useModal();
-
   const [campaigns, setCampaigns] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [openMenuId, setOpenMenuId] = useState(null);
+  const [viewCampaign, setViewCampaign] = useState(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [campaignToDelete, setCampaignToDelete] = useState(null);
+  const menuRefs = useRef({});
 
   /* =========================
      FETCH CAMPAIGNS (reusable)
   ========================= */
+
   const fetchCampaigns = useCallback(async () => {
     try {
       setError("");
@@ -89,7 +95,8 @@ export default function Campaigns() {
     };
 
     window.addEventListener("open-create-modal", openCreateHandler);
-    return () => window.removeEventListener("open-create-modal", openCreateHandler);
+    return () =>
+      window.removeEventListener("open-create-modal", openCreateHandler);
   }, [openModal, fetchCampaigns]);
 
   /* =========================
@@ -106,6 +113,35 @@ export default function Campaigns() {
     return () => window.removeEventListener("campaign-created", refreshHandler);
   }, [fetchCampaigns]);
 
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (!openMenuId) return;
+      const menuNode = menuRefs.current[openMenuId];
+      if (menuNode && !menuNode.contains(e.target)) {
+        setOpenMenuId(null);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [openMenuId]);
+
+useEffect(() => {
+  const refreshHandler = () => {
+    setLoading(true);
+    fetchCampaigns();
+  };
+
+  window.addEventListener("campaign-created", refreshHandler);
+  window.addEventListener("campaign-updated", refreshHandler);
+
+  return () => {
+    window.removeEventListener("campaign-created", refreshHandler);
+    window.removeEventListener("campaign-updated", refreshHandler);
+  };
+}, [fetchCampaigns]);
+
+
   return (
     <div className="flex min-h-screen bg-gray-50">
       <DashboardSidebar />
@@ -117,6 +153,7 @@ export default function Campaigns() {
         {/* =========================
             CAMPAIGNS GRID
         ========================= */}
+
         <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-start lg:px-16 py-5">
           {/* Loading */}
           {loading && (
@@ -161,6 +198,58 @@ export default function Campaigns() {
             </div>
           )}
 
+          {showDeleteConfirm && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/10 px-4">
+              <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+                <h3 className="text-xl font-semibold text-gray-900">
+                  Delete campaign?
+                </h3>
+
+                <p className="mt-2 text-sm text-gray-600">
+                  Are you sure you want to delete{" "}
+                  <span className="font-medium text-gray-900">
+                    {campaignToDelete?.campaignName}
+                  </span>
+                  ? This action cannot be undone.
+                </p>
+
+                <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      await API.delete(`/campaigns/${campaignToDelete._id}`);
+                      setShowDeleteConfirm(false);
+                      setCampaignToDelete(null);
+                      setLoading(true);
+                      fetchCampaigns();
+                    }}
+                    className="flex-1 rounded-xl bg-red-500 px-4 py-3 text-base font-semibold text-white shadow-sm transition hover:bg-red-600"
+                  >
+                    Yes, delete
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowDeleteConfirm(false);
+                      setCampaignToDelete(null);
+                    }}
+                    className="flex-1 rounded-xl border border-gray-200 px-4 py-3 text-base font-semibold text-gray-700 transition hover:border-gray-300 hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {viewCampaign && (
+            <CampaignDetails
+              campaign={viewCampaign}
+              onClose={() => setViewCampaign(null)}
+            />
+          )}
+
           {/* Cards */}
           {!loading &&
             !error &&
@@ -187,17 +276,23 @@ export default function Campaigns() {
               return (
                 <div
                   key={campaign._id}
-                  className="rounded-2xl bg-white p-5 shadow-[0_12px_30px_rgba(17,24,39,0.08)] ring-1 ring-black/5"
+                  className="rounded-2xl bg-white p-5 shadow-[0_12px_30px_rgba(17,24,39,0.08)] ring-1 ring-black/5 h-[-webkit-fill-available]"
                 >
                   {/* Header */}
-                  <div className="flex items-start justify-between">
+
+                  {/* Header */}
+                  <div
+                    className="flex items-start justify-between relative"
+                    ref={(node) => {
+                      if (node) menuRefs.current[campaign._id] = node;
+                    }}
+                  >
                     <div>
                       <h3 className="text-lg font-semibold text-gray-900">
                         {campaign.campaignName || "Untitled Campaign"}
                       </h3>
-
                       <span
-                        className={`mt-2 inline-flex rounded-full border px-3 py-1 text-xs font-medium ${
+                        className={`mt-2 inline-flex rounded-md border px-2 py-0.5 text-xs font-medium ${
                           statusColors[statusKey] || statusColors.other
                         }`}
                       >
@@ -205,14 +300,68 @@ export default function Campaigns() {
                       </span>
                     </div>
 
-                    <button className="rounded-lg p-2 text-gray-500 hover:bg-gray-100">
+                    <button
+                      onClick={() =>
+                        setOpenMenuId(
+                          openMenuId === campaign._id ? null : campaign._id
+                        )
+                      }
+                      className="rounded-lg p-2 text-gray-500 hover:bg-gray-100"
+                    >
                       <HiEllipsisVertical className="h-5 w-5" />
                     </button>
+
+                    {openMenuId === campaign._id && (
+                      <div className="absolute right-0 mt-2 w-40 bg-white border border-gray-200 rounded-md shadow-lg z-50">
+                        <button
+                          onClick={() => {
+                            setViewCampaign(campaign);
+                            setOpenMenuId(null);
+                          }}
+                          className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50"
+                        >
+                          View details
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            openModal(
+                              <CampaignForm
+                                campaign={campaign}
+                                onSuccess={() => {
+                                  setLoading(true);
+                                  fetchCampaigns();
+                                }}
+                              />
+                            );
+                            setOpenMenuId(null);
+                          }}
+                          className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50"
+                        >
+                          Edit
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            setCampaignToDelete(campaign);
+                            setShowDeleteConfirm(true);
+                            setOpenMenuId(null);
+                          }}
+                          className="w-full text-left px-4 py-2 text-sm text-rose-600 hover:bg-rose-50"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   {/* Description */}
                   <p className="mt-4 text-sm text-gray-600">
-                    {campaign.description || "—"}
+                    {campaign.description
+                      ? campaign.description.length > 60
+                        ? campaign.description.slice(0, 60) + "…"
+                        : campaign.description
+                      : "—"}
                   </p>
 
                   {/* Progress */}
@@ -268,4 +417,4 @@ export default function Campaigns() {
       </main>
     </div>
   );
-};
+}
