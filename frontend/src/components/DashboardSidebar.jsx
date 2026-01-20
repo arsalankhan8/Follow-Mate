@@ -17,7 +17,6 @@ const getStoredUser = () => {
     return null;
   }
 };
-
 function DashboardSidebar() {
   const location = useLocation();
   const [user, setUser] = useState(getStoredUser);
