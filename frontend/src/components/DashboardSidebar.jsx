@@ -8,7 +8,7 @@ import {
   HiOutlineUser,
 } from "react-icons/hi2";
 import { Link, useLocation } from "react-router-dom";
-
+import logo from "../assets/follow-mate-logo.png";
 const getStoredUser = () => {
   if (typeof window === "undefined") return null;
   try {
@@ -63,12 +63,7 @@ function DashboardSidebar() {
       <div>
         {/* Logo */}
         <div className="flex items-center justify-center lg:justify-start gap-2">
-          <div className="h-10 w-10 bg-purple-600 rounded-xl text-white flex items-center justify-center text-xl font-bold">
-            i
-          </div>
-          <span className="hidden lg:block font-semibold text-lg">
-            LinkedIn Hub
-          </span>
+          <img src={logo} alt="Logo" className="max-w-44" />
         </div>
 
         <hr className="my-6 border-gray-300" />
@@ -157,10 +152,9 @@ function SidebarItem({ icon, label, to, active }) {
         flex items-center gap-3
         justify-center lg:justify-start
         p-3 rounded-lg transition
-        ${
-          active
-            ? "bg-[#EEF2FF] text-[#4f46e5]"
-            : "text-[#475569] hover:bg-gray-100"
+        ${active
+          ? "bg-[#EEF2FF] text-[#4f46e5]"
+          : "text-[#475569] hover:bg-gray-100"
         }
       `}
     >
