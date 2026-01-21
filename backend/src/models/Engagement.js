@@ -2,10 +2,12 @@ import mongoose from "mongoose";
 
 const engagementSchema = new mongoose.Schema(
   {
+    user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+
     contact: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Contact",
-      required: true
+      required: true,
     },
 
     type: {
@@ -19,25 +21,23 @@ const engagementSchema = new mongoose.Schema(
         "meeting",
         "call",
         "email",
-        "other"
+        "other",
       ],
-      required: true
+      required: true,
     },
 
-    date: {
-      type: Date,
-      required: true
-    },
+    date: { type: Date, required: true },
 
     outcome: {
       type: String,
       enum: ["neutral", "positive", "negative", "no_response_yet"],
-      default: "neutral"
+      default: "neutral",
     },
 
-    notes: { type: String }
+    notes: { type: String },
   },
   { timestamps: true }
 );
+
 
 export default mongoose.model("Engagement", engagementSchema);
