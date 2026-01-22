@@ -1,7 +1,6 @@
 // src/pages/Campaigns.jsx
 
 import { useCallback, useEffect, useState, useRef } from "react";
-
 import DashboardSidebar from "../components/DashboardSidebar.jsx";
 import HeaderSection from "../components/HeaderSection.jsx";
 import AppModal from "../components/modals/AppModal.jsx";
@@ -11,7 +10,7 @@ import CampaignDetails from "./CampaignDetails.jsx";
 import API from "../lib/api";
 
 // Icons (hi2)
-import { HiEllipsisVertical, HiCalendarDays } from "react-icons/hi2";
+import { HiEllipsisVertical, HiCalendarDays, HiExclamationTriangle } from "react-icons/hi2";
 
 const statusColors = {
   active: "bg-emerald-100 text-emerald-700 border-emerald-200",
@@ -67,15 +66,17 @@ export default function Campaigns() {
   const fetchCampaigns = useCallback(async () => {
     try {
       setError("");
+      setLoading(true);
       const res = await API.get("/campaigns");
       setCampaigns(res.data || []);
     } catch (err) {
       console.error("Fetch campaigns error:", err);
-      setError("Failed to load campaigns.");
+      setError(getApiErrorMessage(err));
     } finally {
       setLoading(false);
     }
   }, []);
+
 
   /* =========================
      INITIAL FETCH
@@ -109,15 +110,7 @@ export default function Campaigns() {
      ✅ This is what you were missing
   ========================= */
 
-  useEffect(() => {
-    const refreshHandler = () => {
-      setLoading(true);
-      fetchCampaigns();
-    };
 
-    window.addEventListener("campaign-created", refreshHandler);
-    return () => window.removeEventListener("campaign-created", refreshHandler);
-  }, [fetchCampaigns]);
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -148,6 +141,24 @@ export default function Campaigns() {
   }, [fetchCampaigns]);
 
 
+  function getApiErrorMessage(err) {
+    // Axios: no response means request never reached server
+    if (!err?.response) {
+      return "Can’t connect to the server right now. Please check your internet or try again in a moment.";
+    }
+
+    const status = err.response.status;
+
+    if (status === 401) return "Your session expired. Please login again.";
+    if (status === 403) return "You don’t have permission to view this data.";
+    if (status === 404) return "Campaigns endpoint not found (API route missing).";
+    if (status === 429) return "Too many requests. Please wait a moment and try again.";
+    if (status === 503) return "Service temporarily unavailable. Please try again shortly.";
+    if (status >= 500) return "Something went wrong on our side while loading campaigns. Please try again.";
+
+    return "Failed to load campaigns. Please try again.";
+  }
+
   return (
     <div className="flex min-h-screen bg-gray-50">
       <DashboardSidebar />
@@ -169,17 +180,37 @@ export default function Campaigns() {
             <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-start lg:px-16 py-5">
               {/* Loading */}
               {loading && (
-                <div className="text-sm text-gray-500">Loading campaigns…</div>
+                <div className="col-span-full bg-white border border-gray-200 rounded-xl p-6 text-sm text-gray-600">
+                  Loading campaigns...
+                </div>
               )}
 
               {/* Error */}
               {!loading && error && (
-                <div className="text-sm text-rose-600">{error}</div>
+                <div className="col-span-full">
+                  <div className="bg-white border border-rose-200 rounded-xl p-6 text-sm text-rose-700 flex items-start justify-between gap-4">
+                    <div className="flex items-start gap-2">
+                      <HiExclamationTriangle className="w-5 h-5 mt-0.5" />
+                      <div>
+                        <div className="font-semibold text-rose-800">Unable to load campaigns</div>
+                        <div className="mt-1">{error}</div>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={fetchCampaigns}
+                      className="shrink-0 px-3 py-2 rounded-lg border border-rose-200 text-rose-700 hover:bg-rose-50 text-sm font-medium"
+                    >
+                      Retry
+                    </button>
+                  </div>
+                </div>
               )}
+
 
               {/* Empty State */}
               {!loading && !error && campaigns.length === 0 && (
-                <div className="flex flex-col items-center justify-center mt-10 text-center col-span-full">
+                <div className="flex flex-col items-center justify-center mt-5 text-center col-span-full">
                   <div className="w-16 h-16 flex items-center justify-center rounded-full bg-indigo-100 mb-4">
                     <span className="text-indigo-600 text-2xl font-bold">+</span>
                   </div>
@@ -205,10 +236,11 @@ export default function Campaigns() {
                     }
                     className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
                   >
-                    Create Campaign
+                    Create First Campaign
                   </button>
                 </div>
               )}
+
 
               {showDeleteConfirm && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/10 px-4">
@@ -229,12 +261,17 @@ export default function Campaigns() {
                       <button
                         type="button"
                         onClick={async () => {
-                          await API.delete(`/campaigns/${campaignToDelete._id}`);
-                          setShowDeleteConfirm(false);
-                          setCampaignToDelete(null);
-                          setLoading(true);
-                          fetchCampaigns();
+                          try {
+                            await API.delete(`/campaigns/${campaignToDelete._id}`);
+                            setShowDeleteConfirm(false);
+                            setCampaignToDelete(null);
+                            fetchCampaigns();
+                          } catch (err) {
+                            console.error("Delete campaign error:", err);
+                            alert("Failed to delete campaign. Please try again.");
+                          }
                         }}
+
                         className="flex-1 rounded-xl bg-red-500 px-4 py-3 text-base font-semibold text-white shadow-sm transition hover:bg-red-600"
                       >
                         Yes, delete

@@ -1,6 +1,6 @@
-// src > pages > Contacts.jsx
+// src/pages/Contacts.jsx
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import { useModal } from "../components/context/ModalContext.jsx";
 import ContactForm from "../components/forms/ContactForm";
 import DashboardSidebar from "../components/DashboardSidebar.jsx";
@@ -12,11 +12,11 @@ import ContactDetails from "../components/modals/ContactDetails.jsx";
 // Icons
 import {
   HiOutlineArrowTopRightOnSquare,
-  HiOutlineUser,
   HiOutlineChatBubbleLeftRight,
   HiOutlineExclamationTriangle,
   HiOutlineClock,
   HiOutlineCalendarDays,
+  HiExclamationTriangle,
 } from "react-icons/hi2";
 
 // ---------------- CONFIGS ----------------
@@ -52,17 +52,11 @@ const statusColors = {
 const priorityColors = {
   low: "bg-slate-100 text-slate-600 border-slate-200",
   medium: "bg-blue-100 text-blue-600 border-blue-200",
-  high: "bg-amber-100 text-amber-600 border-amber-200",
+  high: "bg-amber-100 text-amber-600 border-blue-200",
   urgent: "bg-rose-100 text-rose-600 border-rose-200",
 };
 
 // ---------------- HELPERS ----------------
-
-const isToday = (date) => {
-  const d = new Date(date);
-  const today = new Date();
-  return d.toDateString() === today.toDateString();
-};
 
 const getFollowUpStatus = (nextFollowUpDate) => {
   if (!nextFollowUpDate) return null;
@@ -86,13 +80,33 @@ const Badge = ({ label, className, Icon }) => (
   </span>
 );
 
+function getApiErrorMessage(err) {
+  // Axios: no response means request never reached server (backend down / CORS / DNS / offline)
+  if (!err?.response) {
+    return "Can’t connect to the server right now. Please check your internet or try again in a moment.";
+  }
+
+  const status = err.response.status;
+
+  if (status === 401) return "Your session expired. Please login again.";
+  if (status === 403) return "You don’t have permission to view this data.";
+  if (status === 404) return "Contacts endpoint not found (API route missing).";
+  if (status === 429) return "Too many requests. Please wait a moment and try again.";
+  if (status === 503) return "Service temporarily unavailable. Please try again shortly.";
+  if (status >= 500)
+    return "Something went wrong on our side while loading contacts. Please try again.";
+
+  return "Failed to load contacts. Please try again.";
+}
+
 // ---------------- PAGE ----------------
 
 export default function Contacts() {
   const { openModal } = useModal();
+
   const [contacts, setContacts] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   const [viewContact, setViewContact] = useState(null);
 
   // Filters
@@ -100,23 +114,45 @@ export default function Contacts() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
   const [followUpFilter, setFollowUpFilter] = useState("all");
+
   const [openMenuId, setOpenMenuId] = useState(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [contactToDelete, setContactToDelete] = useState(null);
 
   const menuRefs = useRef({});
 
-  const deleteContact = async (id) => {
+  // ---------------- FETCH CONTACTS ----------------
+
+  const fetchContacts = useCallback(async () => {
     try {
-      await API.delete(`/contacts/${id}`);
-      fetchContacts(); // refresh list
-    } catch (err) {
-      alert(err.response?.data?.message || "Failed to delete contact");
+      setError("");
+      setLoading(true);
+      const res = await API.get("/contacts");
+      setContacts(res.data || []);
+    } catch (e) {
+      setError(getApiErrorMessage(e));
+    } finally {
+      setLoading(false);
     }
-  };
+  }, []);
 
-  // close on click : outside
+  useEffect(() => {
+    fetchContacts();
 
+    const handler = () => fetchContacts();
+    window.addEventListener("contacts-updated", handler);
+
+    return () => window.removeEventListener("contacts-updated", handler);
+  }, [fetchContacts]);
+
+  // Open create modal listener
+  useEffect(() => {
+    const handler = () => openModal(<ContactForm />);
+    window.addEventListener("open-create-modal", handler);
+    return () => window.removeEventListener("open-create-modal", handler);
+  }, [openModal]);
+
+  // Close menu on outside click
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (!openMenuId) return;
@@ -131,60 +167,46 @@ export default function Contacts() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [openMenuId]);
 
-  // Open modal listener
+  // ---------------- DELETE CONTACT ----------------
 
-  useEffect(() => {
-    const handler = () => openModal(<ContactForm />);
-    window.addEventListener("open-create-modal", handler);
-    return () => window.removeEventListener("open-create-modal", handler);
-  }, [openModal]);
-
-  // Fetch contacts
-
-  const fetchContacts = async () => {
+  const deleteContact = async (id) => {
     try {
-      setLoading(true);
-      setError(null);
-      const res = await API.get("/contacts");
-      setContacts(res.data);
+      await API.delete(`/contacts/${id}`);
+      setShowDeleteConfirm(false);
+      setContactToDelete(null);
+      fetchContacts(); // refresh list
     } catch (err) {
-      setError(err.response?.data?.message || "Failed to fetch contacts");
-    } finally {
-      setLoading(false);
+      alert(err.response?.data?.message || "Failed to delete contact");
     }
   };
 
-  useEffect(() => {
-    fetchContacts();
-    const handler = () => fetchContacts();
-    window.addEventListener("contacts-updated", handler);
-    return () => window.removeEventListener("contacts-updated", handler);
-  }, []);
-
   // ---------------- FILTERED CONTACTS ----------------
 
-  const filteredContacts = contacts.filter((contact) => {
-    const matchesSearch =
-      !searchQuery ||
-      contact.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (contact.company &&
-        contact.company.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (contact.role &&
-        contact.role.toLowerCase().includes(searchQuery.toLowerCase()));
+  const filteredContacts = useMemo(() => {
+    const list = Array.isArray(contacts) ? contacts : [];
 
-    const matchesStatus =
-      statusFilter === "all" || contact.status === statusFilter;
-    const matchesPriority =
-      priorityFilter === "all" || contact.priority === priorityFilter;
+    return list.filter((contact) => {
+      const fullName = (contact.fullName || "").toLowerCase();
+      const company = (contact.company || "").toLowerCase();
+      const role = (contact.role || "").toLowerCase();
+      const q = (searchQuery || "").toLowerCase();
 
-    const followUpStatus = getFollowUpStatus(contact.nextFollowUpDate);
-    const matchesFollowUp =
-      followUpFilter === "all" ||
-      (followUpFilter === "has_followup" && contact.nextFollowUpDate) ||
-      followUpStatus === followUpFilter;
+      const matchesSearch =
+        !q || fullName.includes(q) || company.includes(q) || role.includes(q);
 
-    return matchesSearch && matchesStatus && matchesPriority && matchesFollowUp;
-  });
+      const matchesStatus = statusFilter === "all" || contact.status === statusFilter;
+      const matchesPriority =
+        priorityFilter === "all" || contact.priority === priorityFilter;
+
+      const followUpStatus = getFollowUpStatus(contact.nextFollowUpDate);
+      const matchesFollowUp =
+        followUpFilter === "all" ||
+        (followUpFilter === "has_followup" && contact.nextFollowUpDate) ||
+        followUpStatus === followUpFilter;
+
+      return matchesSearch && matchesStatus && matchesPriority && matchesFollowUp;
+    });
+  }, [contacts, searchQuery, statusFilter, priorityFilter, followUpFilter]);
 
   return (
     <div className="flex min-h-screen bg-gray-50">
@@ -194,87 +216,115 @@ export default function Contacts() {
         <HeaderSection />
         <AppModal />
 
-        {/* Filters */}
+        {/* Filters (show only when there is at least 1 contact) */}
+        {Array.isArray(contacts) && contacts.length > 0 && (
+          <div className="py-6 lg:px-16">
+            <div className="bg-white rounded-lg shadow-md border border-gray-100 flex flex-wrap items-center justify-between w-full gap-4 p-4">
+              <input
+                type="text"
+                placeholder="Search contacts..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="px-3 py-2 border rounded-md flex-1 min-w-[200px]"
+              />
 
-        <div className="py-6 lg:px-16">
-          <div className="bg-white rounded-lg shadow-md border border-gray-100 flex flex-wrap items-center justify-between w-full gap-4 p-4">
-            <input
-              type="text"
-              placeholder="Search contacts..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="px-3 py-2 border rounded-md flex-1 min-w-[200px]"
-            />
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="px-3 py-2 border rounded-md"
+              >
+                <option value="all">All Status</option>
+                <option value="prospect">Prospect</option>
+                <option value="contacted">Contacted</option>
+                <option value="following">Following</option>
+                <option value="connected">Connected</option>
+                <option value="lead">Lead</option>
+                <option value="client">Client</option>
+                <option value="inactive">Inactive</option>
+              </select>
 
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-3 py-2 border rounded-md"
-            >
-              <option value="all">All Status</option>
-              <option value="prospect">Prospect</option>
-              <option value="contacted">Contacted</option>
-              <option value="following">Following</option>
-              <option value="connected">Connected</option>
-              <option value="lead">Lead</option>
-              <option value="client">Client</option>
-              <option value="inactive">Inactive</option>
-            </select>
+              <select
+                value={priorityFilter}
+                onChange={(e) => setPriorityFilter(e.target.value)}
+                className="px-3 py-2 border rounded-md"
+              >
+                <option value="all">All Priority</option>
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+                <option value="urgent">Urgent</option>
+              </select>
 
-            <select
-              value={priorityFilter}
-              onChange={(e) => setPriorityFilter(e.target.value)}
-              className="px-3 py-2 border rounded-md"
-            >
-              <option value="all">All Priority</option>
-              <option value="low">Low</option>
-              <option value="medium">Medium</option>
-              <option value="high">High</option>
-              <option value="urgent">Urgent</option>
-            </select>
-
-            <select
-              value={followUpFilter}
-              onChange={(e) => setFollowUpFilter(e.target.value)}
-              className="px-3 py-2 border rounded-md"
-            >
-              <option value="all">All Follow-ups</option>
-              <option value="overdue">Overdue</option>
-              <option value="today">Due Today</option>
-              <option value="upcoming">Upcoming</option>
-            </select>
+              <select
+                value={followUpFilter}
+                onChange={(e) => setFollowUpFilter(e.target.value)}
+                className="px-3 py-2 border rounded-md"
+              >
+                <option value="all">All Follow-ups</option>
+                <option value="overdue">Overdue</option>
+                <option value="today">Due Today</option>
+                <option value="upcoming">Upcoming</option>
+              </select>
+            </div>
           </div>
-        </div>
+        )}
 
-        {loading && <p className="lg:px-16 py-4">Loading contacts...</p>}
-        {error && <p className="text-red-500">{error}</p>}
+        {/* Loading */}
+        {loading && <p className="lg:px-16 py-4 text-sm text-gray-500">Loading contacts...</p>}
 
+        {/* Error card */}
+        {!loading && error && (
+          <div className="lg:px-16 py-4">
+            <div className="bg-white border border-rose-200 rounded-xl p-6 text-sm text-rose-700 flex items-start justify-between gap-4">
+              <div className="flex items-start gap-2">
+                <HiExclamationTriangle className="w-5 h-5 mt-0.5" />
+                <div>
+                  <div className="font-semibold text-rose-800">Unable to load contacts</div>
+                  <div className="mt-1">{error}</div>
+                </div>
+              </div>
+
+              <button
+                onClick={fetchContacts}
+                className="shrink-0 px-3 py-2 rounded-lg border border-rose-200 text-rose-700 hover:bg-rose-50 text-sm font-medium"
+              >
+                Retry
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Empty State */}
         {!loading && !error && filteredContacts.length === 0 && (
-          <div className="flex flex-col items-center justify-center mt-20 text-center">
+          <div className="flex flex-col items-center justify-center mt-10 text-center col-span-full">
             <div className="w-16 h-16 flex items-center justify-center rounded-full bg-indigo-100 mb-4">
               <span className="text-indigo-600 text-2xl font-bold">+</span>
             </div>
+
             <h2 className="text-lg font-semibold text-gray-900 mb-2">
               No contacts found
             </h2>
+
             <p className="text-gray-500 mb-4">
               Start building your network by adding your first contact
             </p>
+
             <button
               onClick={() => openModal(<ContactForm />)}
               className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
             >
-              Add Contact
+              Add First Contact
             </button>
           </div>
         )}
 
+
+        {/* Grid */}
         {!loading && !error && filteredContacts.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4  items-center justify-between lg:px-16 py-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-center justify-between lg:px-16 py-5">
             {filteredContacts.map((contact) => {
               const followUpKey = getFollowUpStatus(contact.nextFollowUpDate);
-              const followUpCfg =
-                followUpKey && followUpStatusConfig[followUpKey];
+              const followUpCfg = followUpKey && followUpStatusConfig[followUpKey];
 
               return (
                 <div
@@ -301,11 +351,9 @@ export default function Contacts() {
                     >
                       <button
                         onClick={() =>
-                          setOpenMenuId(
-                            openMenuId === contact._id ? null : contact._id
-                          )
+                          setOpenMenuId(openMenuId === contact._id ? null : contact._id)
                         }
-                        className="text-gray-400 hover:text-gray-600  hover:bg-gray-100 rounded-lg p-2 text-xl leading-none"
+                        className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg p-2 text-xl leading-none"
                       >
                         ⋮
                       </button>
@@ -349,11 +397,7 @@ export default function Contacts() {
 
                   {/* Badges */}
                   <div className="flex flex-wrap gap-2 mt-3">
-                    <Badge
-                      label={contact.status}
-                      className={statusColors[contact.status]}
-                    />
-
+                    <Badge label={contact.status} className={statusColors[contact.status]} />
                     <Badge
                       label={`${contact.priority} priority`}
                       className={priorityColors[contact.priority]}
@@ -403,10 +447,9 @@ export default function Contacts() {
                     </button>
                   </div>
 
-                  {/* Confirmation modal delete  */}
-
+                  {/* Delete Confirmation */}
                   {showDeleteConfirm && (
-                    <div className="fixed inset-[-50px] z-50 flex items-center justify-center bg-black/10 px-4">
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/10 px-4">
                       <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
                         <h3 className="text-xl font-semibold text-gray-900">
                           Delete contact?
@@ -423,11 +466,7 @@ export default function Contacts() {
                         <div className="mt-6 flex flex-col gap-3 sm:flex-row">
                           <button
                             type="button"
-                            onClick={async () => {
-                              await deleteContact(contactToDelete._id);
-                              setShowDeleteConfirm(false);
-                              setContactToDelete(null);
-                            }}
+                            onClick={() => deleteContact(contactToDelete?._id)}
                             className="flex-1 rounded-xl bg-red-500 px-4 py-3 text-base font-semibold text-white shadow-sm transition hover:bg-red-600"
                           >
                             Yes, delete
@@ -448,8 +487,7 @@ export default function Contacts() {
                     </div>
                   )}
 
-                  {/* view details of contact modal  */}
-
+                  {/* View details modal */}
                   {viewContact && (
                     <ContactDetails
                       contact={viewContact}

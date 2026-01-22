@@ -118,6 +118,29 @@ function getContactName(contact) {
   return contact?.name || contact?.fullName || "Unknown";
 }
 
+function getApiErrorMessage(err) {
+  // Axios: no response means request never reached server (backend down / CORS / DNS / offline)
+  if (!err?.response) {
+    return "Can’t connect to the server right now. Please check your internet or try again in a moment.";
+  }
+
+  const status = err.response.status;
+
+  if (status === 401) return "Your session expired. Please login again.";
+  if (status === 403) return "You don’t have permission to view this data.";
+  if (status === 404) return "Engagements endpoint not found (API route missing).";
+  if (status === 429) return "Too many requests. Please wait a moment and try again.";
+
+  // Best practice: backend should send 503 when DB is down / service unavailable
+  if (status === 503) return "Service temporarily unavailable. Please try again shortly.";
+
+  // Generic server error
+  if (status >= 500) return "Something went wrong on our side while loading engagements. Please try again.";
+
+  // fallback
+  return "Failed to load engagements. Please try again.";
+}
+
 export default function Engagements() {
   const { openModal } = useModal();
 
@@ -133,7 +156,7 @@ export default function Engagements() {
       const res = await API.get("/engagements");
       setEngagements(res.data || []);
     } catch (e) {
-      setError("Failed to load engagements");
+      setError(getApiErrorMessage(e));
     } finally {
       setLoading(false);
     }
@@ -208,35 +231,25 @@ export default function Engagements() {
         <AppModal />
 
         {/* Top filter row */}
-        <div className="mb-4 lg:px-16 py-5 flex-1">
-          <div className="bg-white border border-gray-200 rounded-xl px-3 py-2 shadow-sm">
-            <div className="flex items-center gap-3">
-              <select
-                value={typeFilter}
-                onChange={(e) => setTypeFilter(e.target.value)}
-                className="w-full sm:w-56 bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-              >
-                {TYPE_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-
-              <button
-                onClick={() =>
-                  openModal(
-                    <EngagementForm onSuccess={() => fetchEngagements()} />
-                  )
-                }
-                className="hidden sm:inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700"
-              >
-                <span className="text-lg leading-none">+</span>
-                Log Engagement
-              </button>
+        {Array.isArray(engagements) && engagements.length > 0 && (
+          <div className="mb-4 lg:px-16 py-5 flex-1">
+            <div className="bg-white border border-gray-200 rounded-xl px-3 py-2 shadow-sm">
+              <div className="flex items-center gap-3">
+                <select
+                  value={typeFilter}
+                  onChange={(e) => setTypeFilter(e.target.value)}
+                  className="w-full sm:w-56 bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                >
+                  {TYPE_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* States */}
         {loading && (
@@ -244,36 +257,50 @@ export default function Engagements() {
             Loading engagements...
           </div>
         )}
-
         {!loading && error && (
-          <div className="bg-white border border-rose-200 rounded-xl p-6 text-sm text-rose-700 flex items-center gap-2">
-            <HiExclamationTriangle className="w-5 h-5" />
-            {error}
+          <div className="lg:px-16 py-5 flex-1">
+            <div className="bg-white border border-rose-200 rounded-xl p-6 text-sm text-rose-700 flex items-start justify-between gap-4">
+              <div className="flex items-start gap-2">
+                <HiExclamationTriangle className="w-5 h-5 mt-0.5" />
+                <div>
+                  <div className="font-semibold text-rose-800">Unable to load engagements</div>
+                  <div className="mt-1">{error}</div>
+                </div>
+              </div>
+
+              <button
+                onClick={fetchEngagements}
+                className="shrink-0 px-3 py-2 rounded-lg border border-rose-200 text-rose-700 hover:bg-rose-50 text-sm font-medium"
+              >
+                Retry
+              </button>
+            </div>
           </div>
         )}
 
-        {!loading && !error && filteredEngagements.length === 0 && (
-          <div className="flex flex-col items-center justify-center mt-10 text-center bg-white border border-gray-200 rounded-xl p-10 shadow-sm">
-            <h2 className="text-lg font-semibold text-gray-900 mb-2">
-              No engagements logged
-            </h2>
-            <p className="text-gray-500 mb-4">
-              Start tracking your LinkedIn activities
-            </p>
+{!loading && !error && filteredEngagements.length === 0 && (
+  <div className="flex flex-col items-center justify-center mt-10 text-center col-span-full">
+    <div className="w-16 h-16 flex items-center justify-center rounded-full bg-indigo-100 mb-4">
+      <span className="text-indigo-600 text-2xl font-bold">+</span>
+    </div>
 
-            <button
-              onClick={() =>
-                openModal(
-                  <EngagementForm onSuccess={() => fetchEngagements()} />
-                )
-              }
-              className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 flex items-center gap-2"
-            >
-              <span className="text-lg leading-none">+</span>
-              Log First Engagement
-            </button>
-          </div>
-        )}
+    <h2 className="text-lg font-semibold text-gray-900 mb-2">
+      No engagements logged
+    </h2>
+
+    <p className="text-gray-500 mb-4">
+      Start tracking your LinkedIn activities
+    </p>
+
+    <button
+      onClick={() => openModal(<EngagementForm onSuccess={() => fetchEngagements()} />)}
+      className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+    >
+      Log First Engagement
+    </button>
+  </div>
+)}
+
 
         {/* List */}
         {!loading && !error && filteredEngagements.length > 0 && (
