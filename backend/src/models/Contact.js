@@ -35,7 +35,7 @@ const contactSchema = new mongoose.Schema(
       },
     ],
 
-    leadScore: { type: Number, default: 0 },
+    leadScore: { type: Number, default: 0, min: 0, max: 100 },
 
     email: { type: String },
     phone: { type: String },

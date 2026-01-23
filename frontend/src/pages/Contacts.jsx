@@ -413,12 +413,13 @@ export default function Contacts() {
 
                     <Badge
                       label={
-                        contact.campaigns?.length
-                          ? contact.campaigns[0].name
+                        Array.isArray(contact.campaigns) && contact.campaigns.length > 0
+                          ? contact.campaigns[0]?.campaignName || "Unnamed Campaign"
                           : "No Campaign Assigned"
                       }
                       className="bg-gray-100 text-gray-600 border-gray-200"
                     />
+
 
                     <Badge
                       label={`Score: ${contact.leadScore}`}

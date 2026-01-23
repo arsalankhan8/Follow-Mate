@@ -3,8 +3,8 @@ import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import API from "../../lib/api";
 import { useModal } from "../context/ModalContext.jsx";
-
-export default function CampaignForm({ campaign, onSuccess }) {
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+export default function CampaignForm({ campaign }) {
   const { closeModal } = useModal();
 
   const {
@@ -16,23 +16,23 @@ export default function CampaignForm({ campaign, onSuccess }) {
   } = useForm({
     defaultValues: campaign
       ? {
-          campaignName: campaign.campaignName || "",
-          description: campaign.description || "",
-          status: campaign.status || "planning",
-          type: campaign.type || "outreach",
-          startDate: campaign.startDate?.slice(0, 10) || "",
-          endDate: campaign.endDate?.slice(0, 10) || "",
-          targetContacts: campaign.targetContacts || [], // ✅ HERE
-        }
+        campaignName: campaign.campaignName || "",
+        description: campaign.description || "",
+        status: campaign.status || "planning",
+        type: campaign.type || "outreach",
+        startDate: campaign.startDate?.slice(0, 10) || "",
+        endDate: campaign.endDate?.slice(0, 10) || "",
+        targetContacts: campaign.targetContacts || [], // ✅ HERE
+      }
       : {
-          campaignName: "",
-          description: "",
-          status: "planning",
-          type: "outreach",
-          startDate: "",
-          endDate: "",
-          targetContacts: [], // ✅ HERE
-        },
+        campaignName: "",
+        description: "",
+        status: "planning",
+        type: "outreach",
+        startDate: "",
+        endDate: "",
+        targetContacts: [], // ✅ HERE
+      },
   });
 
   // ✅ Reset form when editing a different campaign
@@ -74,29 +74,38 @@ export default function CampaignForm({ campaign, onSuccess }) {
   const textareaBase =
     "w-full rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-900 shadow-sm placeholder:text-gray-400 min-h-[110px] resize-none";
 
+
+  const queryClient = useQueryClient();
+
+  const saveCampaignMutation = useMutation({
+    mutationFn: async (payload) => {
+      if (campaign?._id) {
+        return API.put(`/campaigns/${campaign._id}`, payload);
+      }
+      return API.post("/campaigns", payload);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["campaigns"] });
+      closeModal();
+    },
+  });
+
+
   const onSubmit = async (data) => {
     try {
       const payload = {
         ...data,
-        targetContacts: Array.isArray(data.targetContacts)
-          ? data.targetContacts
-          : [],
+  targetContactsCount: Number(data.targetContactsCount || 0),
       };
 
-      if (campaign?._id) {
-        await API.put(`/campaigns/${campaign._id}`, payload);
-        window.dispatchEvent(new Event("campaign-updated"));
-      } else {
-        await API.post("/campaigns", payload);
-        window.dispatchEvent(new Event("campaign-created"));
-      }
-
-      onSuccess?.();
-      closeModal();
+      await saveCampaignMutation.mutateAsync(payload);
+      
     } catch (err) {
       console.error("Failed to save campaign", err);
       alert(
-        err.response?.data?.message || err.message || "Failed to save campaign."
+        err.response?.data?.message ||
+        err.message ||
+        "Failed to save campaign."
       );
     }
   };
@@ -118,9 +127,8 @@ export default function CampaignForm({ campaign, onSuccess }) {
             maxLength: 80,
           })}
           placeholder="Enter campaign name"
-          className={`${inputBase} ${
-            errors.campaignName ? "border-red-500 focus:border-red-500" : ""
-          }`}
+          className={`${inputBase} ${errors.campaignName ? "border-red-500 focus:border-red-500" : ""
+            }`}
           maxLength={80}
         />
         <div className="flex justify-between text-xs mt-1">
@@ -130,11 +138,10 @@ export default function CampaignForm({ campaign, onSuccess }) {
             </p>
           )}
           <p
-            className={`${
-              (watch("campaignName")?.length || 0) >= 80
-                ? "text-red-500"
-                : "text-gray-400"
-            }`}
+            className={`${(watch("campaignName")?.length || 0) >= 80
+              ? "text-red-500"
+              : "text-gray-400"
+              }`}
           >
             {watch("campaignName")?.length || 0}/80
           </p>
@@ -147,9 +154,8 @@ export default function CampaignForm({ campaign, onSuccess }) {
         <textarea
           {...register("description", { maxLength: 500 })}
           placeholder="Write a short description..."
-          className={`${textareaBase} min-h-[120px] ${
-            errors.description ? "border-red-500 focus:border-red-500" : ""
-          }`}
+          className={`${textareaBase} min-h-[120px] ${errors.description ? "border-red-500 focus:border-red-500" : ""
+            }`}
           maxLength={500}
         />
         <div className="flex justify-between text-xs mt-1">
@@ -159,11 +165,10 @@ export default function CampaignForm({ campaign, onSuccess }) {
             </p>
           )}
           <p
-            className={`${
-              (watch("description")?.length || 0) >= 500
-                ? "text-red-500"
-                : "text-gray-400"
-            }`}
+            className={`${(watch("description")?.length || 0) >= 500
+              ? "text-red-500"
+              : "text-gray-400"
+              }`}
           >
             {watch("description")?.length || 0}/500
           </p>
@@ -211,19 +216,19 @@ export default function CampaignForm({ campaign, onSuccess }) {
       </div>
 
       {/* Target Contacts */}
-      <div>
-        <label className={labelCls}>Target Contacts</label>
-        <input
-          type="number"
-          min={0}
-          {...register("targetContacts", {
-            valueAsNumber: true,
-            min: { value: 0, message: "Cannot be negative" },
-          })}
-          placeholder="0"
-          className={inputBase}
-        />
-      </div>
+<div>
+  <label className={labelCls}>Target Contacts</label>
+  <input
+    type="number"
+    min={0}
+    {...register("targetContactsCount", {
+      valueAsNumber: true,
+      min: { value: 0, message: "Cannot be negative" },
+    })}
+    placeholder="0"
+    className={inputBase}
+  />
+</div>
 
       {/* Footer */}
       <div className="flex justify-end gap-3 pt-2">
@@ -245,8 +250,8 @@ export default function CampaignForm({ campaign, onSuccess }) {
               ? "Updating..."
               : "Creating..."
             : campaign
-            ? "Update Campaign"
-            : "Create Campaign"}
+              ? "Update Campaign"
+              : "Create Campaign"}
         </button>
       </div>
     </form>

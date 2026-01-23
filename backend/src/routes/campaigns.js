@@ -28,7 +28,7 @@ router.post("/", authenticate, async (req, res) => {
       type,
       startDate: startDate ? new Date(startDate) : undefined,
       endDate: endDate ? new Date(endDate) : undefined,
-      targetContacts: Array.isArray(targetContacts) ? targetContacts : [],
+      targetContacts: [],
       user: req.userId,
     });
 
@@ -86,10 +86,10 @@ router.put("/:id", authenticate, async (req, res) => {
     if (updates.startDate) updates.startDate = new Date(updates.startDate);
     if (updates.endDate) updates.endDate = new Date(updates.endDate);
 
-    if (updates.targetContacts && !Array.isArray(updates.targetContacts)) {
-      updates.targetContacts = [];
+    if (updates.targetContactsCount !== undefined) {
+      updates.targetContactsCount = Number(updates.targetContactsCount || 0);
     }
-    
+
     const campaign = await Campaign.findOneAndUpdate(
       { _id: req.params.id, user: req.userId },
       updates,

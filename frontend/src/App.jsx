@@ -16,6 +16,7 @@ import Engagements from "./pages/Engagements.jsx";
 import Analytics from "./pages/Analytics.jsx";
 import Settings from "./pages/Settings.jsx";
 import { ModalProvider } from "./components/context/ModalContext.jsx";
+
 function ProtectedRoute({ children }) {
   const token = localStorage.getItem("token");
   if (!token) {

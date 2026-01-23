@@ -69,7 +69,8 @@ const HeaderSection = () => {
 
         {showButton && buttonText && (
           <button
-            onClick={handleClick}
+           onClick={() => window.dispatchEvent(new Event("open-create-modal"))}
+            
             className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700"
           >
             <span className="text-lg leading-none">+</span>

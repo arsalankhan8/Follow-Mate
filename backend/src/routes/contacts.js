@@ -1,7 +1,7 @@
 import express from "express";
 import mongoose from "mongoose";
 import Contact from "../models/Contact.js";
-import Campaign from "../models/Campaign.js"; 
+import Campaign from "../models/Campaign.js";
 import { authenticate } from "./auth.js";
 const router = express.Router();
 
@@ -32,7 +32,10 @@ router.post("/", authenticate, async (req, res) => {
     }
 
     // Validate required fields
-    if (!req.body.fullName || (typeof req.body.fullName === "string" && req.body.fullName.trim() === "")) {
+    if (
+      !req.body.fullName ||
+      (typeof req.body.fullName === "string" && req.body.fullName.trim() === "")
+    ) {
       return res.status(400).json({
         message: "Full name is required",
       });
@@ -58,17 +61,33 @@ router.post("/", authenticate, async (req, res) => {
     }
 
     // Normalize status - only if provided and not empty
-    if (req.body.status && typeof req.body.status === "string" && req.body.status.trim()) {
+    if (
+      req.body.status &&
+      typeof req.body.status === "string" &&
+      req.body.status.trim()
+    ) {
       const normalizedStatus = req.body.status.toLowerCase().trim();
       // Only set if it's a valid enum value
-      const validStatuses = ["prospect", "contacted", "following", "connected", "lead", "client", "inactive"];
+      const validStatuses = [
+        "prospect",
+        "contacted",
+        "following",
+        "connected",
+        "lead",
+        "client",
+        "inactive",
+      ];
       if (validStatuses.includes(normalizedStatus)) {
         contactData.status = normalizedStatus;
       }
     }
 
     // Normalize priority - only if provided and not empty
-    if (req.body.priority && typeof req.body.priority === "string" && req.body.priority.trim()) {
+    if (
+      req.body.priority &&
+      typeof req.body.priority === "string" &&
+      req.body.priority.trim()
+    ) {
       const normalizedPriority = req.body.priority.toLowerCase().trim();
       // Only set if it's a valid enum value
       const validPriorities = ["low", "medium", "high", "urgent"];
@@ -78,7 +97,11 @@ router.post("/", authenticate, async (req, res) => {
     }
 
     // Handle leadScore - convert to number if provided
-    if (req.body.leadScore !== undefined && req.body.leadScore !== null && req.body.leadScore !== "") {
+    if (
+      req.body.leadScore !== undefined &&
+      req.body.leadScore !== null &&
+      req.body.leadScore !== ""
+    ) {
       const leadScore = Number(req.body.leadScore);
       if (!isNaN(leadScore)) {
         contactData.leadScore = leadScore;
@@ -96,14 +119,22 @@ router.post("/", authenticate, async (req, res) => {
     }
 
     // Handle dates - only if provided and not empty
-    if (req.body.lastContactDate && typeof req.body.lastContactDate === "string" && req.body.lastContactDate.trim() !== "") {
+    if (
+      req.body.lastContactDate &&
+      typeof req.body.lastContactDate === "string" &&
+      req.body.lastContactDate.trim() !== ""
+    ) {
       const date = new Date(req.body.lastContactDate);
       if (!isNaN(date.getTime())) {
         contactData.lastContactDate = date;
       }
     }
 
-    if (req.body.nextFollowUpDate && typeof req.body.nextFollowUpDate === "string" && req.body.nextFollowUpDate.trim() !== "") {
+    if (
+      req.body.nextFollowUpDate &&
+      typeof req.body.nextFollowUpDate === "string" &&
+      req.body.nextFollowUpDate.trim() !== ""
+    ) {
       const date = new Date(req.body.nextFollowUpDate);
       if (!isNaN(date.getTime())) {
         contactData.nextFollowUpDate = date;
@@ -114,9 +145,12 @@ router.post("/", authenticate, async (req, res) => {
     if (req.body.tags) {
       if (typeof req.body.tags === "string" && req.body.tags.trim()) {
         // Split by comma or use as single tag
-        contactData.tags = req.body.tags.split(",").map(tag => tag.trim()).filter(tag => tag.length > 0);
+        contactData.tags = req.body.tags
+          .split(",")
+          .map((tag) => tag.trim())
+          .filter((tag) => tag.length > 0);
       } else if (Array.isArray(req.body.tags)) {
-        contactData.tags = req.body.tags.filter(tag => tag && tag.trim());
+        contactData.tags = req.body.tags.filter((tag) => tag && tag.trim());
       }
     }
 
@@ -127,18 +161,26 @@ router.post("/", authenticate, async (req, res) => {
 
     // Handle campaigns - ensure it's an array
     if (req.body.campaigns) {
-      if (Array.isArray(req.body.campaigns)) {
-        contactData.campaigns = req.body.campaigns.filter(campaign => campaign);
-      } else if (req.body.campaigns) {
-        contactData.campaigns = [req.body.campaigns];
-      }
+      if (!Array.isArray(req.body.campaigns))
+        req.body.campaigns = [req.body.campaigns];
+
+      const campaigns = req.body.campaigns
+        .map((c) => {
+          if (typeof c === "string" && mongoose.Types.ObjectId.isValid(c))
+            return c;
+          if (c?._id && mongoose.Types.ObjectId.isValid(c._id)) return c._id;
+          return null;
+        })
+        .filter(Boolean);
+
+      contactData.campaigns = campaigns;
     }
 
     const contact = await Contact.create(contactData);
-    
+
     // Populate campaigns for response
     await contact.populate("campaigns");
-    
+
     res.status(201).json(contact);
   } catch (err) {
     // Handle validation errors
@@ -151,10 +193,12 @@ router.post("/", authenticate, async (req, res) => {
       return res.status(400).json({
         message: "Validation error",
         errors: validationErrors,
-        error: Object.values(err.errors).map((e) => e.message).join(", "),
+        error: Object.values(err.errors)
+          .map((e) => e.message)
+          .join(", "),
       });
     }
-    
+
     // Log the full error for debugging
     console.error("Error creating contact:", {
       message: err.message,
@@ -163,7 +207,7 @@ router.post("/", authenticate, async (req, res) => {
       contactData: contactData,
       userId: req.userId,
     });
-    
+
     res.status(500).json({
       message: "Failed to create contact",
       error: err.message,
@@ -199,7 +243,7 @@ router.get("/", authenticate, async (req, res) => {
       stack: err.stack,
       userId: req.userId,
     });
-    
+
     res.status(500).json({
       message: "Failed to fetch contacts",
       error: err.message,
@@ -250,22 +294,29 @@ router.put("/:id", authenticate, async (req, res) => {
     }
 
     // Normalize status and priority if provided
-    if (req.body.status) {
-      req.body.status = req.body.status.toLowerCase();
-    }
+    if (req.body.status) req.body.status = req.body.status.toLowerCase();
+    if (req.body.priority) req.body.priority = req.body.priority.toLowerCase();
 
-    if (req.body.priority) {
-      req.body.priority = req.body.priority.toLowerCase();
-    }
-
-    // Prevent user field from being changed
+    // Prevent changing user
     delete req.body.user;
 
+    // Normalize campaigns
+    if (req.body.campaigns) {
+      if (!Array.isArray(req.body.campaigns))
+        req.body.campaigns = [req.body.campaigns];
+      req.body.campaigns = req.body.campaigns
+        .map((c) => {
+          if (typeof c === "string" && mongoose.Types.ObjectId.isValid(c))
+            return c;
+          if (c?._id && mongoose.Types.ObjectId.isValid(c._id)) return c._id;
+          return null;
+        })
+        .filter(Boolean);
+    }
+
+    // Update the contact
     const updated = await Contact.findOneAndUpdate(
-      {
-        _id: req.params.id,
-        user: req.userId, // Ensure user owns this contact
-      },
+      { _id: req.params.id, user: req.userId },
       req.body,
       { new: true, runValidators: true }
     ).populate("campaigns");
@@ -276,11 +327,12 @@ router.put("/:id", authenticate, async (req, res) => {
 
     res.json(updated);
   } catch (err) {
-    // Handle validation errors
     if (err.name === "ValidationError") {
       return res.status(400).json({
         message: "Validation error",
-        error: Object.values(err.errors).map((e) => e.message).join(", "),
+        error: Object.values(err.errors)
+          .map((e) => e.message)
+          .join(", "),
       });
     }
 

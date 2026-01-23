@@ -3,6 +3,7 @@ import { useForm, useFieldArray } from "react-hook-form";
 import { useEffect, useState } from "react";
 import API from "../../lib/api";
 import { useModal } from "../context/ModalContext.jsx";
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 
 export default function ContactForm({ contact }) {
   const { closeModal } = useModal();
@@ -17,26 +18,28 @@ export default function ContactForm({ contact }) {
   } = useForm({
     defaultValues: contact
       ? {
-          fullName: contact.fullName,
-          profileUrl: contact.profileUrl,
-          role: contact.role,
-          company: contact.company,
-          status: contact.status,
-          priority: contact.priority,
-          leadScore: contact.leadScore,
-          email: contact.email,
-          phone: contact.phone,
+        fullName: contact.fullName,
+        profileUrl: contact.profileUrl,
+        role: contact.role,
+        company: contact.company,
+        status: contact.status,
+        priority: contact.priority,
+        leadScore: contact.leadScore,
+        email: contact.email,
+        phone: contact.phone,
 
-          // ✅ tags as array of objects for useFieldArray
-          tags: (contact.tags || []).map((t) => ({ value: t })),
+        // ✅ tags as array of objects for useFieldArray
+        tags: (contact.tags || []).map((t) => ({ value: t })),
 
-          notes: contact.notes,
-          lastContactDate: contact.lastContactDate?.slice(0, 10),
-          nextFollowUpDate: contact.nextFollowUpDate?.slice(0, 10),
-        }
+        notes: contact.notes,
+        lastContactDate: contact.lastContactDate?.slice(0, 10),
+        nextFollowUpDate: contact.nextFollowUpDate?.slice(0, 10),
+   campaignId: contact?.campaigns?.[0]?._id || "",
+
+      }
       : {
-          tags: [],
-        },
+        tags: [],
+      },
   });
 
   const [tagInput, setTagInput] = useState("");
@@ -56,7 +59,7 @@ export default function ContactForm({ contact }) {
 
     const current = watch("tags") || [];
 
-    // ✅ limit: max 3 tags
+    //  limit: max 3 tags
     if (current.length >= 3) {
       setTagInput("");
       return;
@@ -101,43 +104,60 @@ export default function ContactForm({ contact }) {
         notes: contact.notes,
         lastContactDate: contact.lastContactDate?.slice(0, 10),
         nextFollowUpDate: contact.nextFollowUpDate?.slice(0, 10),
+     campaignId: contact?.campaigns?.[0]?._id || "",
+
       });
     }
   }, [contact, reset]);
 
-  const onSubmit = async (data) => {
-    try {
-      // ✅ Convert tags [{value:"x"}] -> ["x"]
-      const payload = {
-        ...data,
-        tags: (data.tags || []).map((t) => t?.value?.trim()).filter(Boolean),
-      };
 
-      console.log("Submitting contact data:", payload);
+  const queryClient = useQueryClient();
 
-      let response;
+  const saveContactMutation = useMutation({
+    mutationFn: async (payload) => {
       if (contact?._id) {
-        response = await API.put(`/contacts/${contact._id}`, payload);
-      } else {
-        response = await API.post("/contacts", payload);
+        return API.put(`/contacts/${contact._id}`, payload);
       }
-
-      console.log("Contact created successfully:", response.data);
+      return API.post("/contacts", payload);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["contacts"] });
       closeModal();
-      window.dispatchEvent(new Event("contacts-updated"));
-    } catch (err) {
-      console.error("Failed to create contact:", err);
-      console.error("Error response:", err.response?.data);
+    },
+  });
 
-      const errorMessage =
-        err.response?.data?.error ||
-        err.response?.data?.message ||
-        err.message ||
-        "Failed to create contact. Please try again.";
+const onSubmit = async (data) => {
+  try {
+    const payload = {
+      ...data,
+      tags: (data.tags || []).map((t) => t?.value?.trim()).filter(Boolean),
+      campaigns: data.campaignId ? [data.campaignId] : [],
+    };
 
-      alert(`Error: ${errorMessage}`);
-    }
-  };
+    delete payload.campaignId;
+
+    await saveContactMutation.mutateAsync(payload);
+    window.dispatchEvent(new Event("contacts-updated"));
+  } catch (err) {
+    const errorMessage =
+      err.response?.data?.error ||
+      err.response?.data?.message ||
+      err.message ||
+      "Failed to save contact.";
+    alert(errorMessage);
+  }
+};
+
+
+  const { data: campaigns = [], isLoading: campaignsLoading } = useQuery({
+    queryKey: ["campaigns"],
+    queryFn: async () => {
+      const res = await API.get("/campaigns");
+      return res.data || [];
+    },
+    staleTime: 1000 * 60 * 5,
+  });
+
 
   const tagsLimitReached = tagFields.length >= 3;
 
@@ -156,9 +176,8 @@ export default function ContactForm({ contact }) {
           </label>
           <input
             {...register("fullName", { required: true, maxLength: 50 })}
-            className={`input ${
-              errors.fullName ? "border-red-500 focus:border-red-500" : ""
-            }`}
+            className={`input ${errors.fullName ? "border-red-500 focus:border-red-500" : ""
+              }`}
             maxLength={50}
             placeholder="Enter full name"
           />
@@ -169,11 +188,10 @@ export default function ContactForm({ contact }) {
               </p>
             )}
             <p
-              className={`${
-                (watch("fullName")?.length || 0) >= 50
-                  ? "text-red-500"
-                  : "text-gray-400"
-              }`}
+              className={`${(watch("fullName")?.length || 0) >= 50
+                ? "text-red-500"
+                : "text-gray-400"
+                }`}
             >
               {watch("fullName")?.length || 0}/50
             </p>
@@ -201,9 +219,8 @@ export default function ContactForm({ contact }) {
           <label className="block text-sm mb-1">Company</label>
           <input
             {...register("company", { maxLength: 100 })}
-            className={`input ${
-              errors.company ? "border-red-500 focus:border-red-500" : ""
-            }`}
+            className={`input ${errors.company ? "border-red-500 focus:border-red-500" : ""
+              }`}
             maxLength={100}
             placeholder="Enter company"
           />
@@ -249,15 +266,42 @@ export default function ContactForm({ contact }) {
           <label className="block text-sm mb-1">
             Campaign <span className="text-gray-400">(Optional)</span>
           </label>
-          <select className="input">
-            <option>Select campaign...</option>
+
+          <select
+            {...register("campaignId")}
+            className="input"
+            disabled={campaignsLoading}
+          >
+            <option value="">
+              {campaignsLoading ? "Loading campaigns..." : "Select campaign..."}
+            </option>
+
+{campaigns.map((c) => (
+  <option key={c._id} value={c._id}>
+    {c.campaignName}
+  </option>
+))}
+
           </select>
         </div>
 
         {/* Lead Score */}
         <div>
           <label className="block text-sm mb-1">Lead Score (0–100)</label>
-          <input type="number" {...register("leadScore")} className="input" />
+          <input
+            type="number"
+            min={0}
+            max={100}
+            {...register("leadScore", {
+              valueAsNumber: true,
+              min: 0,
+              max: 100,
+            })}
+            className="input"
+          />
+          {watch("leadScore") > 100 && (
+            <p className="text-red-500 text-sm">Max allowed is 100</p>
+          )}
         </div>
 
         {/* Email */}
@@ -349,9 +393,8 @@ export default function ContactForm({ contact }) {
           <label className="block text-sm mb-1">Notes</label>
           <textarea
             {...register("notes", { maxLength: 500 })}
-            className={`input min-h-[120px] ${
-              errors.notes ? "border-red-500 focus:border-red-500" : ""
-            }`}
+            className={`input min-h-[120px] ${errors.notes ? "border-red-500 focus:border-red-500" : ""
+              }`}
             maxLength={500}
             placeholder="Add notes..."
           />
@@ -362,11 +405,10 @@ export default function ContactForm({ contact }) {
               </p>
             )}
             <p
-              className={`${
-                (watch("notes")?.length || 0) >= 500
-                  ? "text-red-500"
-                  : "text-gray-400"
-              }`}
+              className={`${(watch("notes")?.length || 0) >= 500
+                ? "text-red-500"
+                : "text-gray-400"
+                }`}
             >
               {watch("notes")?.length || 0}/500
             </p>
